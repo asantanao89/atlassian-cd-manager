@@ -1,0 +1,17 @@
+{
+  "name": "jira-time-tracking-manager",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:client": "npm --prefix client run dev",
+    "dev:server": "npm --prefix server run dev",
+    "build": "npm --prefix client run build && npm --prefix server run build",
+    "test": "npm --prefix client run test && npm --prefix server run test",
+    "lint": "npm --prefix client run lint && npm --prefix server run lint",
+    "typecheck": "npm --prefix client run typecheck && npm --prefix server run typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
