@@ -108,6 +108,159 @@ En la pestaña **Mi seguimiento** se muestra:
 
 ---
 
+## Despliegue en servidor de desarrollo
+
+Pasos para servir la aplicación en un servidor Linux con nginx y systemd.
+
+### 1. Clonar y construir
+
+```bash
+git clone <repo> /var/www/jira-time-tracker
+cd /var/www/jira-time-tracker
+npm install
+npm --prefix client install
+npm --prefix server install
+```
+
+### 2. Configurar variables de entorno del servidor
+
+```bash
+cp .env.example /var/www/jira-time-tracker/server/.env
+```
+
+Edita `server/.env` con los valores reales y ajusta `CLIENT_ORIGIN` al dominio con HTTPS:
+
+```env
+JIRA_BASE_URL=https://your-domain.atlassian.net
+JIRA_EMAIL=your-email@example.com
+JIRA_API_TOKEN=your-api-token
+SERVER_PORT=3000
+CLIENT_ORIGIN=https://jira-time-tracker.example.com
+```
+
+### 3. Configurar variable de entorno del cliente
+
+Crea `client/.env.production` para que el build use rutas relativas y nginx enrute las llamadas `/api/` al servidor Fastify:
+
+```bash
+echo "VITE_API_BASE_URL=" > /var/www/jira-time-tracker/client/.env.production
+```
+
+> Sin este archivo, el cliente usará el fallback `http://localhost:3000` hardcodeado en el bundle, causando errores CORS.
+
+### 4. Compilar
+
+```bash
+cd /var/www/jira-time-tracker
+npm run build
+```
+
+Los estáticos del cliente quedan en `client/dist/`.
+
+### 5. Configurar nginx
+
+Crea `/etc/nginx/sites-available/jira-time-tracker`:
+
+```nginx
+server {
+    listen 80;
+    server_name jira-time-tracker.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name jira-time-tracker.example.com;
+
+    ssl_certificate     /etc/ssl/certs/your-cert.bundle;
+    ssl_certificate_key /etc/ssl/private/your-cert.key;
+
+    root /var/www/jira-time-tracker/client/dist;
+    index index.html;
+
+    # Frontend (Vue SPA)
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Backend (Fastify API)
+    location /api/ {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+Activa el sitio:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/jira-time-tracker /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### 6. Configurar el servicio systemd
+
+Crea `/etc/systemd/system/jira-time-tracker.service`:
+
+```ini
+[Unit]
+Description=Jira Time Tracking Manager API
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/jira-time-tracker/server
+ExecStart=/usr/local/bin/node dist/index.js
+Restart=on-failure
+RestartSec=5
+EnvironmentFile=/var/www/jira-time-tracker/server/.env
+
+[Install]
+WantedBy=multi-user.target
+```
+
+> **Nota:** `ExecStart` debe apuntar a un binario de node accesible por `www-data`. Si usas nvm, el binario estará en `~/.nvm/versions/node/<version>/bin/node` y solo será accesible para tu usuario. Cópialo a una ruta del sistema:
+>
+> ```bash
+> sudo cp $(which node) /usr/local/bin/node
+> ```
+>
+> Si en el futuro actualizas node con nvm, repite este paso.
+
+Activa e inicia el servicio:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable jira-time-tracker
+sudo systemctl start jira-time-tracker
+sudo systemctl status jira-time-tracker
+```
+
+### 7. Verificar
+
+```bash
+# El servidor Fastify está corriendo
+curl http://localhost:3000/api/jira/me
+
+# El proxy de nginx funciona
+curl https://jira-time-tracker.example.com/api/jira/me
+```
+
+### Actualizar tras cambios en el repo
+
+```bash
+cd /var/www/jira-time-tracker
+git pull
+npm run build
+sudo systemctl restart jira-time-tracker
+```
+
+---
+
 ## Limitaciones conocidas
 
 1. **`timeSpent` no es editable directamente.** En Jira, el tiempo dedicado se calcula sumando los worklogs. Para modificarlo, crea, edita o elimina worklogs.
