@@ -24,23 +24,6 @@ function startOfWeek(): Date {
   return d
 }
 
-function startOfSprint(): Date {
-  const currentWeekStart = startOfWeek()
-  const firstDayOfYear = new Date(currentWeekStart.getFullYear(), 0, 1)
-  const firstDayWeekday = firstDayOfYear.getDay() === 0 ? 7 : firstDayOfYear.getDay()
-  const firstMonday = new Date(firstDayOfYear)
-  firstMonday.setDate(firstDayOfYear.getDate() - (firstDayWeekday - 1))
-  firstMonday.setHours(0, 0, 0, 0)
-
-  const diffMs = currentWeekStart.getTime() - firstMonday.getTime()
-  const weekIndex = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000))
-  const sprintWeekIndex = weekIndex % 2 === 0 ? weekIndex : weekIndex - 1
-
-  const sprintStart = new Date(firstMonday)
-  sprintStart.setDate(firstMonday.getDate() + sprintWeekIndex * 7)
-  return sprintStart
-}
-
 function startOfMonth(): Date {
   const now = new Date()
   return new Date(now.getFullYear(), now.getMonth(), 1)
@@ -101,26 +84,22 @@ const totals = computed(() => {
   const rows = worklogs.value ?? []
   const todayStart = startOfToday()
   const weekStart = startOfWeek()
-  const sprintStart = startOfSprint()
   const monthStart = startOfMonth()
 
   let daySeconds = 0
   let weekSeconds = 0
-  let sprintSeconds = 0
   let monthSeconds = 0
 
   for (const row of rows) {
     const started = new Date(row.started)
     if (started >= todayStart) daySeconds += row.timeSpentSeconds
     if (started >= weekStart) weekSeconds += row.timeSpentSeconds
-    if (started >= sprintStart) sprintSeconds += row.timeSpentSeconds
     if (started >= monthStart) monthSeconds += row.timeSpentSeconds
   }
 
   return {
     daySeconds,
     weekSeconds,
-    sprintSeconds,
     monthSeconds,
   }
 })
@@ -129,20 +108,16 @@ const targets = computed(() => {
   const today = startOfToday()
   const weekStart = startOfWeek()
   const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 4)
-  const sprintStart = startOfSprint()
-  const sprintEnd = new Date(sprintStart); sprintEnd.setDate(sprintStart.getDate() + 11)
   const monthStart = startOfMonth()
   const monthEnd = endOfMonth()
 
   const dayVacation = vacationStore.isVacationDay(today) ? 1 : 0
   const weekVacation = countVacationDaysInRange(weekStart, weekEnd)
-  const sprintVacation = countVacationDaysInRange(sprintStart, sprintEnd)
   const monthVacation = countVacationDaysInRange(monthStart, monthEnd)
 
   return {
     dayHours: Math.max(0, (1 - dayVacation) * 8),
     weekHours: Math.max(0, (5 - weekVacation) * 8),
-    sprintHours: Math.max(0, (10 - sprintVacation) * 8),
     monthHours: Math.max(0, (countWorkingDaysInMonth() - monthVacation) * 8),
   }
 })
@@ -165,7 +140,7 @@ const targets = computed(() => {
       {{ error instanceof Error ? error.message : 'Error al cargar resumen de horas' }}
     </div>
 
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+    <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-3">
       <div class="bg-white border border-gray-200 rounded-lg p-4">
         <p class="text-xs text-gray-500">Hoy</p>
         <p class="flex items-end gap-2">
@@ -178,13 +153,6 @@ const targets = computed(() => {
         <p class="flex items-end gap-2">
           <span class="text-2xl font-semibold text-gray-800">{{ formatHours(totals.weekSeconds) }}</span>
           <span class="text-sm font-medium text-gray-400">/ {{ formatTargetHours(targets.weekHours) }}</span>
-        </p>
-      </div>
-      <div class="bg-white border border-gray-200 rounded-lg p-4">
-        <p class="text-xs text-gray-500">Sprint</p>
-        <p class="flex items-end gap-2">
-          <span class="text-2xl font-semibold text-gray-800">{{ formatHours(totals.sprintSeconds) }}</span>
-          <span class="text-sm font-medium text-gray-400">/ {{ formatTargetHours(targets.sprintHours) }}</span>
         </p>
       </div>
       <div class="bg-white border border-gray-200 rounded-lg p-4">
