@@ -18,58 +18,45 @@ function isWeekend(date: Date): boolean {
   return d === 0 || d === 6
 }
 
-function startOfCurrentSprint(): Date {
-  const weekStart = new Date(now)
-  const day = weekStart.getDay() === 0 ? 7 : weekStart.getDay()
-  weekStart.setDate(now.getDate() - (day - 1))
-  weekStart.setHours(0, 0, 0, 0)
-
-  const firstDayOfYear = new Date(weekStart.getFullYear(), 0, 1)
-  const fdw = firstDayOfYear.getDay() === 0 ? 7 : firstDayOfYear.getDay()
-  const firstMonday = new Date(firstDayOfYear)
-  firstMonday.setDate(firstDayOfYear.getDate() - (fdw - 1))
-  firstMonday.setHours(0, 0, 0, 0)
-
-  const diffMs = weekStart.getTime() - firstMonday.getTime()
-  const weekIndex = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000))
-  const sprintWeekIndex = weekIndex % 2 === 0 ? weekIndex : weekIndex - 1
-
-  const sprintStart = new Date(firstMonday)
-  sprintStart.setDate(firstMonday.getDate() + sprintWeekIndex * 7)
-  return sprintStart
+function startOfWeek(date: Date): Date {
+  const day = date.getDay() === 0 ? 7 : date.getDay()
+  const start = new Date(date)
+  start.setDate(date.getDate() - (day - 1))
+  start.setHours(0, 0, 0, 0)
+  return start
 }
 
 interface DayEntry { iso: string; label: string; isCurrentMonth: boolean }
 
-/** Working days of the current month + sprint days outside the current month */
+/** Working days of the month plus out-of-month days from weeks that overlap this month. */
 const allDays = computed<DayEntry[]>(() => {
-  const seen = new Set<string>()
   const days: DayEntry[] = []
 
-  // Current month working days
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
-  for (let d = 1; d <= daysInMonth; d++) {
-    const date = new Date(currentYear, currentMonth, d)
+  const monthStart = new Date(currentYear, currentMonth, 1)
+  const monthEnd = new Date(currentYear, currentMonth + 1, 0)
+  const firstWeekStart = startOfWeek(monthStart)
+  const lastWeekStart = startOfWeek(monthEnd)
+  const rangeEnd = new Date(lastWeekStart)
+  rangeEnd.setDate(lastWeekStart.getDate() + 4)
+
+  const cursor = new Date(firstWeekStart)
+  while (cursor <= rangeEnd) {
+    const date = new Date(cursor)
+    cursor.setDate(cursor.getDate() + 1)
     if (isWeekend(date)) continue
+
     const iso = toIso(date)
-    seen.add(iso)
-    const label = date.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit' })
-    days.push({ iso, label, isCurrentMonth: true })
+    const isCurrentMonth = date.getFullYear() === currentYear && date.getMonth() === currentMonth
+    const label = date.toLocaleDateString('es-ES', {
+      weekday: 'short',
+      day: '2-digit',
+      ...(isCurrentMonth ? {} : { month: 'short' }),
+    })
+
+    days.push({ iso, label, isCurrentMonth })
   }
 
-  // Sprint days outside the current month
-  const sprintStart = startOfCurrentSprint()
-  for (let i = 0; i < 14; i++) {
-    const date = new Date(sprintStart)
-    date.setDate(sprintStart.getDate() + i)
-    if (isWeekend(date)) continue
-    const iso = toIso(date)
-    if (seen.has(iso)) continue
-    const label = date.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })
-    days.push({ iso, label, isCurrentMonth: false })
-  }
-
-  return days.sort((a, b) => a.iso.localeCompare(b.iso))
+  return days
 })
 
 const monthLabel = computed(() =>
