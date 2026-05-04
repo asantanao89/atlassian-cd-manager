@@ -14,7 +14,7 @@ interface TooltipState {
   lines: string[]
 }
 
-type RangeMode = 'week' | 'sprint' | 'month'
+type RangeMode = 'week' | 'month'
 
 interface DayBucket {
   date: Date
@@ -29,7 +29,7 @@ const emit = defineEmits<{
   requestOverbookedReview: [dayIso: string]
 }>()
 
-const rangeMode = ref<RangeMode>('sprint')
+const rangeMode = ref<RangeMode>('week')
 const pendingChangesStore = usePendingChangesStore()
 const { changes } = storeToRefs(pendingChangesStore)
 const vacationStore = useVacationDaysStore()
@@ -79,23 +79,6 @@ function startOfCurrentWeek(date: Date): Date {
 
 function startOfCurrentMonth(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1)
-}
-
-function startOfCurrentSprint(date: Date): Date {
-  const currentWeekStart = startOfCurrentWeek(date)
-  const firstDayOfYear = new Date(currentWeekStart.getFullYear(), 0, 1)
-  const firstDayWeekday = firstDayOfYear.getDay() === 0 ? 7 : firstDayOfYear.getDay()
-  const firstMonday = new Date(firstDayOfYear)
-  firstMonday.setDate(firstDayOfYear.getDate() - (firstDayWeekday - 1))
-  firstMonday.setHours(0, 0, 0, 0)
-
-  const diffMs = currentWeekStart.getTime() - firstMonday.getTime()
-  const weekIndex = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000))
-  const sprintWeekIndex = weekIndex % 2 === 0 ? weekIndex : weekIndex - 1
-
-  const sprintStart = new Date(firstMonday)
-  sprintStart.setDate(firstMonday.getDate() + sprintWeekIndex * 7)
-  return sprintStart
 }
 
 function endOfCurrentMonth(date: Date): Date {
@@ -221,7 +204,6 @@ const {
 
 const rangeDescription = computed(() => {
   if (rangeMode.value === 'week') return 'Referencia por día de la semana actual.'
-  if (rangeMode.value === 'sprint') return 'Referencia por día del sprint actual.'
   return 'Referencia por día del mes.'
 })
 
@@ -243,32 +225,6 @@ const buckets = computed<DayBucket[]>(() => {
     for (const row of rows) {
       const date = atStartOfDay(new Date(row.started))
       if (isWeekend(date)) continue
-      const bucket = days.find((item) => isSameDay(item.date, date))
-      if (bucket) bucket.seconds += row.timeSpentSeconds
-    }
-
-    applyPendingChanges(days)
-
-    return days
-  }
-
-  if (rangeMode.value === 'sprint') {
-    const start = startOfCurrentSprint(now)
-    const end = new Date(start)
-    end.setDate(start.getDate() + 13)
-    const days: DayBucket[] = []
-
-    for (let i = 0; i < 14; i += 1) {
-      const day = new Date(start)
-      day.setDate(start.getDate() + i)
-      if (isWeekend(day)) continue
-      days.push({ date: day, seconds: 0, pendingSeconds: 0, isVacation: vacationStore.isVacationDay(day) })
-    }
-
-    for (const row of rows) {
-      const date = atStartOfDay(new Date(row.started))
-      if (isWeekend(date)) continue
-      if (date < start || date > end) continue
       const bucket = days.find((item) => isSameDay(item.date, date))
       if (bucket) bucket.seconds += row.timeSpentSeconds
     }
@@ -393,13 +349,6 @@ const errorMessage = computed(() => {
             @click="rangeMode = 'week'"
           >
             Semana
-          </button>
-          <button
-            class="px-2 py-1 transition-colors"
-            :class="rangeMode === 'sprint' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
-            @click="rangeMode = 'sprint'"
-          >
-            Sprint
           </button>
           <button
             class="px-2 py-1 transition-colors"
