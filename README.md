@@ -94,6 +94,15 @@ En la pestaña **Mi seguimiento** se muestra:
 - Lista de worklogs recientes del usuario.
 - Lista de issues asignadas con columnas de time tracking (original, restante, dedicado).
 
+### Convención de vacaciones y ausencias
+
+- Los días seleccionables incluyen todos los días laborables del mes actual.
+- También se permiten días laborables fuera del mes cuando pertenecen a una semana que intersecta el mes actual.
+- No se usa lógica de sprint para vacaciones/ausencias ni para estos límites.
+
+Regla formal del proyecto:
+- `.github/instructions/vacation-week-overlap.instructions.md`
+
 ---
 
 ## Scripts disponibles
