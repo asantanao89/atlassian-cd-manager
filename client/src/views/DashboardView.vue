@@ -11,7 +11,7 @@ import ConnectionStatus from '../components/ConnectionStatus.vue'
 import TrackingSummaryCards from '../components/TrackingSummaryCards.vue'
 import DailyHoursChartBlock from '../components/DailyHoursChartBlock.vue'
 import MyOpenIssuesTable from '../components/MyOpenIssuesTable.vue'
-import MySprintIssuesTable from '../components/MySprintIssuesTable.vue'
+import MyIssuesTable from '../components/MyIssuesTable.vue'
 import WorklogList from '../components/WorklogList.vue'
 import WorklogEditor from '../components/WorklogEditor.vue'
 import VacationDaysSection from '../components/VacationDaysSection.vue'
@@ -19,7 +19,6 @@ import VacationDaysSection from '../components/VacationDaysSection.vue'
 type PanelMode = 'worklogs' | 'create-worklog' | 'edit-worklog' | null
 
 const queryClient = useQueryClient()
-const isSprintSectionOpen = ref(false)
 const isMonthSectionOpen = ref(false)
 
 const {
@@ -44,36 +43,6 @@ const myOpenIssuesErrorMessage = computed(() => {
   return myOpenIssuesError.value instanceof Error
     ? myOpenIssuesError.value.message
     : 'Error al cargar mis issues abiertas'
-})
-
-const {
-  data: mySprintIssues,
-  isLoading: isLoadingMySprintIssues,
-  error: mySprintIssuesError,
-  refetch: refetchMySprintIssues,
-} = useQuery({
-  queryKey: ['dashboard-my-sprint-issues'],
-  queryFn: async () => {
-    const result = await jiraApi.searchIssues({
-      jql: 'assignee = currentUser() AND sprint in openSprints() AND project != CDT ORDER BY updated DESC',
-      maxResults: 50,
-    })
-    return result.issues
-  },
-  retry: 1,
-  enabled: computed(() => isSprintSectionOpen.value),
-})
-
-const mySprintIssuesErrorMessage = computed(() => {
-  if (!mySprintIssuesError.value) return null
-  return mySprintIssuesError.value instanceof Error
-    ? mySprintIssuesError.value.message
-    : 'Error al cargar issues del sprint'
-})
-
-const mySprintIssuesFiltered = computed(() => {
-  const openIssueKeys = new Set((myOpenIssues.value ?? []).map(issue => issue.key))
-  return (mySprintIssues.value ?? []).filter(issue => !openIssueKeys.has(issue.key))
 })
 
 const {
@@ -180,7 +149,6 @@ const { mutate: deleteWorklogFromReview, isPending: isDeletingWorklog } = useMut
     confirmDeleteWorklogId.value = null
     queryClient.invalidateQueries({ queryKey: ['worklogs', variables.issueKey] })
     queryClient.invalidateQueries({ queryKey: ['dashboard-my-open-issues'] })
-    queryClient.invalidateQueries({ queryKey: ['dashboard-my-sprint-issues'] })
     queryClient.invalidateQueries({ queryKey: ['dashboard-my-month-issues'] })
     queryClient.invalidateQueries({ queryKey: ['dashboard-monthly-issues-with-worklogs'] })
     queryClient.invalidateQueries({ queryKey: ['my-monthly-worklogs'] })
@@ -356,7 +324,6 @@ const selectableIssuesForQuickLog = computed(() => {
   const map = new Map<string, JiraIssueSummary>()
 
   for (const issue of myOpenIssues.value ?? []) map.set(issue.key, issue)
-  for (const issue of mySprintIssuesFiltered.value ?? []) map.set(issue.key, issue)
   for (const issue of myMonthIssues.value ?? []) map.set(issue.key, issue)
 
   return Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key))
@@ -474,35 +441,6 @@ function confirmQuickLogTask(): void {
       <div class="flex items-center justify-between">
         <button
           class="flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-gray-900 transition-colors"
-          @click="isSprintSectionOpen = !isSprintSectionOpen"
-        >
-          <span class="text-xs">{{ isSprintSectionOpen ? '▼' : '▶' }}</span>
-          <span>Issues del sprint actual</span>
-        </button>
-        <button
-          v-if="isSprintSectionOpen"
-          class="text-xs px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors"
-          @click="() => refetchMySprintIssues()"
-        >
-          Actualizar
-        </button>
-      </div>
-
-      <div v-if="isSprintSectionOpen" class="animate-in fade-in">
-        <MySprintIssuesTable
-          :issues="mySprintIssuesFiltered"
-          :is-loading="isLoadingMySprintIssues"
-          :error="mySprintIssuesErrorMessage"
-          @view-worklogs="(issue) => openPanel(issue, 'worklogs')"
-          @create-worklog="(issue) => openPanel(issue, 'create-worklog')"
-        />
-      </div>
-    </section>
-
-    <section class="space-y-2">
-      <div class="flex items-center justify-between">
-        <button
-          class="flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-gray-900 transition-colors"
           @click="isMonthSectionOpen = !isMonthSectionOpen"
         >
           <span class="text-xs">{{ isMonthSectionOpen ? '▼' : '▶' }}</span>
@@ -518,7 +456,7 @@ function confirmQuickLogTask(): void {
       </div>
 
       <div v-if="isMonthSectionOpen" class="animate-in fade-in">
-        <MySprintIssuesTable
+        <MyIssuesTable
           :issues="myMonthIssues ?? []"
           :is-loading="isLoadingMyMonthIssues"
           :error="myMonthIssuesErrorMessage"
