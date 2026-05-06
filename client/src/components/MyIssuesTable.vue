@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/vue-query'
 import { jiraApi } from '../api/jiraApi'
 import { usePendingChangesStore } from '../stores/pendingChanges.store'
 import { parseJiraDurationToSeconds } from '../utils/jiraDuration'
-import type { JiraIssueSummary } from '../types/jira'
+import type { JiraIssueSummary, JiraOpenPullRequest } from '../types/jira'
 import type { PendingChange } from '../types/pendingChange'
 
 const props = defineProps<{
@@ -26,7 +26,11 @@ const { data: connectionInfo } = useQuery({
 })
 
 const jiraBaseUrl = computed(() => connectionInfo.value?.jiraBaseUrl?.replace(/\/$/, '') ?? '')
-const copiedIssueKey = ref<string | null>(null)
+const copiedCellId = ref<string | null>(null)
+const expandedIssueId = ref<string | null>(null)
+const parentPullRequestsByKey = ref<Record<string, JiraOpenPullRequest[]>>({})
+const parentPullRequestsLoading = ref<Record<string, boolean>>({})
+const parentPullRequestsError = ref<Record<string, string | null>>({})
 
 const pendingChangesStore = usePendingChangesStore()
 const { changes } = storeToRefs(pendingChangesStore)
@@ -36,15 +40,49 @@ function issueBrowseUrl(issueKey: string): string {
   return `${jiraBaseUrl.value}/browse/${encodeURIComponent(issueKey)}`
 }
 
-async function copyIssueKey(issueKey: string): Promise<void> {
+async function copyIssueKey(issueKey: string, cellId: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(issueKey)
-    copiedIssueKey.value = issueKey
+    copiedCellId.value = cellId
     window.setTimeout(() => {
-      if (copiedIssueKey.value === issueKey) copiedIssueKey.value = null
+      if (copiedCellId.value === cellId) copiedCellId.value = null
     }, 1500)
   } catch {
-    copiedIssueKey.value = null
+    copiedCellId.value = null
+  }
+}
+
+async function loadParentPullRequests(parentKey: string): Promise<void> {
+  if (parentPullRequestsLoading.value[parentKey]) return
+  parentPullRequestsLoading.value[parentKey] = true
+  parentPullRequestsError.value[parentKey] = null
+
+  try {
+    const result = await jiraApi.getOpenPullRequestsForParent(parentKey)
+    parentPullRequestsByKey.value[parentKey] = result.pullRequests
+  } catch (error) {
+    parentPullRequestsError.value[parentKey] =
+      error instanceof Error ? error.message : 'No se pudieron cargar los pull requests'
+  } finally {
+    parentPullRequestsLoading.value[parentKey] = false
+  }
+}
+
+function isParentDetailsOpen(issue: JiraIssueSummary): boolean {
+  return expandedIssueId.value === issue.id
+}
+
+async function toggleParentDetails(issue: JiraIssueSummary): Promise<void> {
+  if (!issue.parentKey) return
+
+  if (expandedIssueId.value === issue.id) {
+    expandedIssueId.value = null
+    return
+  }
+
+  expandedIssueId.value = issue.id
+  if (!Object.prototype.hasOwnProperty.call(parentPullRequestsByKey.value, issue.parentKey)) {
+    await loadParentPullRequests(issue.parentKey)
   }
 }
 
@@ -101,6 +139,37 @@ function formatCompactHours(seconds: number): string {
   const hours = Math.abs(seconds) / 3600
   return `${sign}${hours.toFixed(1).replace(/\.0$/, '')}h`
 }
+
+function statusBadgeClass(statusName: string): string {
+  const value = statusName.trim().toLowerCase()
+  if (!value) return 'bg-gray-100 text-gray-600'
+
+  if (value.includes('hecho') || value.includes('listo') || value.includes('done') || value.includes('cerrad') || value.includes('resolved') || value.includes('complet')) {
+    return 'bg-green-100 text-green-700'
+  }
+
+  if (value.includes('producción') || value.includes('produccion') || value.includes('release') || value.includes('deploy')) {
+    return 'bg-green-100 text-green-700'
+  }
+
+  if (value.includes('en proceso') || value.includes('en progreso') || value.includes('progress') || value.includes('curso') || value.includes('doing') || value.includes('develop') || value.includes('implement')) {
+    return 'bg-blue-100 text-blue-700'
+  }
+
+  if (value.includes('por hacer') || value.includes('to do') || value.includes('todo') || value.includes('open') || value.includes('backlog') || value.includes('pend')) {
+    return 'bg-amber-100 text-amber-700'
+  }
+
+  if (value.includes('review') || value.includes('qa') || value.includes('test') || value.includes('valid')) {
+    return 'bg-purple-100 text-purple-700'
+  }
+
+  if (value.includes('block') || value.includes('imped') || value.includes('hold') || value.includes('stop')) {
+    return 'bg-red-100 text-red-700'
+  }
+
+  return 'bg-gray-100 text-gray-600'
+}
 </script>
 
 <template>
@@ -134,11 +203,8 @@ function formatCompactHours(seconds: number): string {
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
-          <tr
-            v-for="issue in props.issues"
-            :key="issue.id"
-            class="hover:bg-blue-50 transition-colors"
-          >
+          <template v-for="issue in props.issues" :key="issue.id">
+            <tr class="hover:bg-blue-50 transition-colors">
             <td class="px-3 py-2 font-mono font-medium whitespace-nowrap">
               <div class="flex items-center gap-1">
                 <a
@@ -155,11 +221,11 @@ function formatCompactHours(seconds: number): string {
                 <button
                   type="button"
                   class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                  :class="copiedIssueKey === issue.key ? 'text-green-600' : ''"
-                  :title="copiedIssueKey === issue.key ? 'Copiado' : 'Copiar clave'"
-                  @click.stop="copyIssueKey(issue.key)"
+                  :class="copiedCellId === `${issue.id}-key` ? 'text-green-600' : ''"
+                  :title="copiedCellId === `${issue.id}-key` ? 'Copiado' : 'Copiar clave'"
+                  @click.stop="copyIssueKey(issue.key, `${issue.id}-key`)"
                 >
-                  <svg v-if="copiedIssueKey !== issue.key" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
+                  <svg v-if="copiedCellId !== `${issue.id}-key`" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
                     <path d="M6.5 2.5A2.5 2.5 0 0 0 4 5v8A2.5 2.5 0 0 0 6.5 15.5h6A2.5 2.5 0 0 0 15 13V5a2.5 2.5 0 0 0-2.5-2.5h-6Zm0 1h6A1.5 1.5 0 0 1 14 5v8a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 5 13V5a1.5 1.5 0 0 1 1.5-1.5Z" />
                     <path d="M3.5 6A.5.5 0 0 1 4 6.5v8A2.5 2.5 0 0 0 6.5 17H12a.5.5 0 0 1 0 1H6.5A3.5 3.5 0 0 1 3 14.5v-8a.5.5 0 0 1 .5-.5Z" />
                   </svg>
@@ -169,17 +235,35 @@ function formatCompactHours(seconds: number): string {
                 </button>
               </div>
             </td>
-            <td class="px-3 py-2 whitespace-nowrap">
-              <a
-                v-if="issue.parentKey && jiraBaseUrl"
-                class="text-xs font-mono font-medium text-purple-600 hover:text-purple-800 underline"
-                :href="issueBrowseUrl(issue.parentKey)"
-                target="_blank"
-                rel="noopener noreferrer"
-                @click.stop
-              >
-                {{ issue.parentKey }}
-              </a>
+            <td class="px-3 py-2 font-mono font-medium whitespace-nowrap">
+              <div v-if="issue.parentKey" class="flex items-center gap-1">
+                <a
+                  v-if="jiraBaseUrl"
+                  class="text-blue-600 hover:text-blue-800 underline"
+                  :href="issueBrowseUrl(issue.parentKey)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  @click.stop
+                >
+                  {{ issue.parentKey }}
+                </a>
+                <span v-else class="text-blue-600">{{ issue.parentKey }}</span>
+                <button
+                  type="button"
+                  class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  :class="copiedCellId === `${issue.id}-parent` ? 'text-green-600' : ''"
+                  :title="copiedCellId === `${issue.id}-parent` ? 'Copiado' : 'Copiar clave'"
+                  @click.stop="copyIssueKey(issue.parentKey, `${issue.id}-parent`)"
+                >
+                  <svg v-if="copiedCellId !== `${issue.id}-parent`" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
+                    <path d="M6.5 2.5A2.5 2.5 0 0 0 4 5v8A2.5 2.5 0 0 0 6.5 15.5h6A2.5 2.5 0 0 0 15 13V5a2.5 2.5 0 0 0-2.5-2.5h-6Zm0 1h6A1.5 1.5 0 0 1 14 5v8a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 5 13V5a1.5 1.5 0 0 1 1.5-1.5Z" />
+                    <path d="M3.5 6A.5.5 0 0 1 4 6.5v8A2.5 2.5 0 0 0 6.5 17H12a.5.5 0 0 1 0 1H6.5A3.5 3.5 0 0 1 3 14.5v-8a.5.5 0 0 1 .5-.5Z" />
+                  </svg>
+                  <svg v-else viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-8 8.07a1 1 0 0 1-1.42.007l-3-3.003a1 1 0 1 1 1.414-1.414l2.29 2.291 7.296-7.36a1 1 0 0 1 1.414-.005Z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+              </div>
               <span v-else class="text-xs text-gray-400">—</span>
             </td>
             <td class="px-3 py-2 whitespace-nowrap">
@@ -206,7 +290,10 @@ function formatCompactHours(seconds: number): string {
               </p>
             </td>
             <td class="px-3 py-2 whitespace-nowrap">
-              <span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+              <span
+                class="text-xs px-1.5 py-0.5 rounded"
+                :class="statusBadgeClass(issue.statusName)"
+              >
                 {{ issue.statusName }}
               </span>
             </td>
@@ -235,9 +322,71 @@ function formatCompactHours(seconds: number): string {
                 >
                   + Log
                 </button>
+                <button
+                  class="text-xs px-2 py-1 text-gray-500 hover:text-gray-700 disabled:opacity-40"
+                  :title="issue.parentKey ? 'Ver PRs abiertos del parent' : 'Sin parent'"
+                  :disabled="!issue.parentKey"
+                  @click="toggleParentDetails(issue)"
+                >
+                  {{ isParentDetailsOpen(issue) ? '▼' : '▶' }}
+                </button>
               </div>
             </td>
-          </tr>
+            </tr>
+            <tr v-if="issue.parentKey && isParentDetailsOpen(issue)" class="bg-purple-50/40">
+              <td colspan="7" class="px-3 py-3">
+                <div v-if="parentPullRequestsLoading[issue.parentKey]" class="text-xs text-gray-500">
+                  Cargando pull requests abiertos de {{ issue.parentKey }}...
+                </div>
+                <div
+                  v-else-if="parentPullRequestsError[issue.parentKey]"
+                  class="text-xs text-red-600"
+                >
+                  {{ parentPullRequestsError[issue.parentKey] }}
+                </div>
+                <div
+                  v-else-if="(parentPullRequestsByKey[issue.parentKey] ?? []).length === 0"
+                  class="text-xs text-gray-500"
+                >
+                  No hay pull requests abiertos en el parent {{ issue.parentKey }}.
+                </div>
+                <div v-else class="space-y-1.5">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Pull requests abiertos en {{ issue.parentKey }}
+                  </p>
+                  <ul class="space-y-1">
+                    <li
+                      v-for="pr in parentPullRequestsByKey[issue.parentKey]"
+                      :key="pr.id"
+                      class="text-xs text-gray-700 flex flex-wrap items-center gap-2"
+                    >
+                      <a
+                        v-if="pr.url"
+                        :href="pr.url"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-blue-600 hover:text-blue-800 underline"
+                      >
+                        {{ pr.title }}
+                      </a>
+                      <span v-else>{{ pr.title }}</span>
+                      <span v-if="pr.repository" class="text-gray-500">({{ pr.repository }})</span>
+                      <span v-if="pr.sourceBranch && pr.targetBranch" class="text-gray-500">
+                        {{ pr.sourceBranch }} -> {{ pr.targetBranch }}
+                      </span>
+                      <span v-else-if="pr.sourceBranch" class="text-gray-500">{{ pr.sourceBranch }}</span>
+                      <span
+                        v-if="pr.state"
+                        class="px-1.5 py-0.5 rounded border border-blue-300 text-blue-700 font-semibold"
+                      >
+                        {{ pr.state }}
+                      </span>
+                    </li>
+                  </ul>
+                </div>
+              </td>
+            </tr>
+          </template>
         </tbody>
       </table>
     </div>

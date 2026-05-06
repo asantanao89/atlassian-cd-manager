@@ -3,6 +3,7 @@ import type {
   JiraConnectionInfo,
   JiraIssueSummary,
   JiraIssueWithWorklogs,
+  JiraOpenPullRequest,
   JiraUser,
   JiraWorklog,
 } from '../types/jira'
@@ -66,6 +67,11 @@ export const jiraApi = {
 
   getIssue: (issueKey: string): Promise<JiraIssueSummary> =>
     httpClient.get<JiraIssueSummary>(`/api/jira/issues/${encodeURIComponent(issueKey)}`),
+
+  getOpenPullRequestsForParent: (parentKey: string): Promise<{ pullRequests: JiraOpenPullRequest[] }> =>
+    httpClient.get<{ pullRequests: JiraOpenPullRequest[] }>(
+      `/api/jira/issues/${encodeURIComponent(parentKey)}/open-pull-requests`,
+    ),
 
   getWorklogs: (issueKey: string): Promise<WorklogListResponse> =>
     httpClient.get<WorklogListResponse>(

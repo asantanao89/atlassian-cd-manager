@@ -38,6 +38,17 @@ export interface JiraIssueWithWorklogs extends JiraIssueSummary {
   worklogs: JiraWorklog[]
 }
 
+export interface JiraOpenPullRequest {
+  id: string
+  title: string
+  url: string | null
+  state: string | null
+  sourceBranch: string | null
+  targetBranch: string | null
+  repository: string | null
+  author: string | null
+}
+
 export interface JiraWorklog {
   id: string
   issueId: string
