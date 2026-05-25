@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { storeToRefs } from 'pinia'
+import RepoPickerDialog from './RepoPickerDialog.vue'
 import { useQuery } from '@tanstack/vue-query'
 import { jiraApi } from '../api/jiraApi'
 import { usePendingChangesStore } from '../stores/pendingChanges.store'
@@ -30,6 +32,14 @@ const copiedIssueKey = ref<string | null>(null)
 
 const pendingChangesStore = usePendingChangesStore()
 const { changes } = storeToRefs(pendingChangesStore)
+
+const showRepoPicker = ref(false)
+const pendingPrSourceKey = ref<string | null>(null)
+
+function openRepoPicker(sourceKey: string): void {
+  pendingPrSourceKey.value = sourceKey
+  showRepoPicker.value = true
+}
 
 function issueBrowseUrl(issueKey: string): string {
   if (!jiraBaseUrl.value) return '#'
@@ -167,19 +177,62 @@ function formatCompactHours(seconds: number): string {
                     <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-8 8.07a1 1 0 0 1-1.42.007l-3-3.003a1 1 0 1 1 1.414-1.414l2.29 2.291 7.296-7.36a1 1 0 0 1 1.414-.005Z" clip-rule="evenodd" />
                   </svg>
                 </button>
+                <router-link
+                  :to="{ name: 'branch', query: { issue: issue.key } }"
+                  class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  title="Crear rama"
+                  @click.stop
+                >
+                  <svg viewBox="0 0 16 16" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
+                    <path d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.5 2.5 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25ZM11 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm-7 1a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z" />
+                  </svg>
+                </router-link>
+                <button
+                  type="button"
+                  class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  title="Crear pull request"
+                  @click.stop="openRepoPicker(issue.key)"
+                >
+                  <svg viewBox="0 0 16 16" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
+                    <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z" />
+                  </svg>
+                </button>
               </div>
             </td>
             <td class="px-3 py-2 whitespace-nowrap">
-              <a
-                v-if="issue.parentKey && jiraBaseUrl"
-                class="text-xs font-mono font-medium text-purple-600 hover:text-purple-800 underline"
-                :href="issueBrowseUrl(issue.parentKey)"
-                target="_blank"
-                rel="noopener noreferrer"
-                @click.stop
-              >
-                {{ issue.parentKey }}
-              </a>
+              <div v-if="issue.parentKey" class="flex items-center gap-1">
+                <a
+                  v-if="jiraBaseUrl"
+                  class="text-xs font-mono font-medium text-purple-600 hover:text-purple-800 underline"
+                  :href="issueBrowseUrl(issue.parentKey)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  @click.stop
+                >
+                  {{ issue.parentKey }}
+                </a>
+                <span v-else class="text-xs font-mono font-medium text-purple-600">{{ issue.parentKey }}</span>
+                <router-link
+                  :to="{ name: 'branch', query: { issue: issue.parentKey } }"
+                  class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  title="Crear rama"
+                  @click.stop
+                >
+                  <svg viewBox="0 0 16 16" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
+                    <path d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.5 2.5 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25ZM11 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm-7 1a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z" />
+                  </svg>
+                </router-link>
+                <button
+                  type="button"
+                  class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  title="Crear pull request"
+                  @click.stop="openRepoPicker(issue.parentKey!)"
+                >
+                  <svg viewBox="0 0 16 16" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
+                    <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z" />
+                  </svg>
+                </button>
+              </div>
               <span v-else class="text-xs text-gray-400">—</span>
             </td>
             <td class="px-3 py-2 whitespace-nowrap">
@@ -242,6 +295,12 @@ function formatCompactHours(seconds: number): string {
       </table>
     </div>
   </div>
+
+  <RepoPickerDialog
+    :show="showRepoPicker"
+    :source-key="pendingPrSourceKey"
+    @close="showRepoPicker = false"
+  />
 </template>
 
 <style scoped>

@@ -1,9 +1,12 @@
 import { httpClient } from './httpClient'
 import type {
+  CreatePullRequestParams,
+  CreatedPullRequest,
   JiraConnectionInfo,
   JiraIssueSummary,
   JiraIssueWithWorklogs,
   JiraOpenPullRequest,
+  PullRequestBranchList,
   JiraUser,
   JiraWorklog,
 } from '../types/jira'
@@ -72,6 +75,12 @@ export const jiraApi = {
     httpClient.get<{ pullRequests: JiraOpenPullRequest[] }>(
       `/api/jira/issues/${encodeURIComponent(parentKey)}/open-pull-requests`,
     ),
+
+  getPullRequestBranches: (): Promise<PullRequestBranchList> =>
+    httpClient.get<PullRequestBranchList>('/api/bitbucket/pull-requests/branches'),
+
+  createPullRequest: (params: CreatePullRequestParams): Promise<CreatedPullRequest> =>
+    httpClient.post<CreatedPullRequest>('/api/bitbucket/pull-requests', params),
 
   getWorklogs: (issueKey: string): Promise<WorklogListResponse> =>
     httpClient.get<WorklogListResponse>(

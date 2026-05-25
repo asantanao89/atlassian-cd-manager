@@ -54,11 +54,54 @@ Edita `server/.env`:
 JIRA_BASE_URL=https://your-domain.atlassian.net
 JIRA_EMAIL=your-email@example.com
 JIRA_API_TOKEN=your-api-token
+BITBUCKET_BASE_URL=https://api.bitbucket.org/2.0
+BITBUCKET_WORKSPACE=your-workspace
+BITBUCKET_REPO_SLUG=your-repository-slug
+BITBUCKET_LOCAL_REPOS_ROOT=
+BITBUCKET_LOCAL_REPOS_MAP=
+BITBUCKET_USERNAME=your-bitbucket-username
+BITBUCKET_APP_PASSWORD=your-bitbucket-app-password
 SERVER_PORT=3000
 CLIENT_ORIGIN=http://localhost:5173
 ```
 
 > ⚠️ **Nunca commitees el archivo `.env` real.** Ya está en `.gitignore`.
+
+### Reutilizar clones locales al crear ramas
+
+La creación de ramas puede reutilizar repositorios locales existentes para evitar `git clone` temporal en cada operación.
+
+- `BITBUCKET_LOCAL_REPOS_ROOT` (opcional): ruta raíz donde cada repo vive en una carpeta con el mismo `repoSlug`.
+- `BITBUCKET_LOCAL_REPOS_MAP` (opcional): mapeo explícito `repoSlug=/ruta/repo`, separado por comas.
+
+Ejemplo:
+
+```env
+BITBUCKET_LOCAL_REPOS_ROOT=/Users/tu-usuario/work/repos
+BITBUCKET_LOCAL_REPOS_MAP=proshop=/Users/tu-usuario/work/proshop,otro-repo=/Volumes/dev/otro-repo
+```
+
+Orden de resolución al crear rama:
+
+1. Busca primero en `BITBUCKET_LOCAL_REPOS_MAP`.
+2. Si no encuentra, intenta `BITBUCKET_LOCAL_REPOS_ROOT/<repoSlug>`.
+3. Si no hay repositorio local válido, usa el flujo actual de clone temporal como fallback.
+
+### Pull Request (Bitbucket)
+
+Para habilitar la vista **Pull Request** se requieren credenciales de Bitbucket Cloud con permisos de lectura/escritura sobre el repositorio:
+
+- `BITBUCKET_WORKSPACE`
+- `BITBUCKET_REPO_SLUG`
+- `BITBUCKET_USERNAME`
+- `BITBUCKET_APP_PASSWORD`
+
+Flujo implementado en la vista:
+
+1. Cargar ramas disponibles del repositorio configurado.
+2. Seleccionar rama origen y rama target.
+3. Crear pull request.
+4. Mostrar resumen del PR creado con enlace para abrirlo en una nueva pestaña.
 
 ---
 

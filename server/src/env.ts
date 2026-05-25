@@ -9,6 +9,15 @@ const envSchema = z.object({
   JIRA_API_TOKEN: z.string().min(1, 'JIRA_API_TOKEN is required'),
   SERVER_PORT: z.coerce.number().int().positive().default(3000),
   CLIENT_ORIGIN: z.string().url('CLIENT_ORIGIN must be a valid URL').default('http://localhost:5173'),
+  BITBUCKET_BASE_URL: z
+    .string()
+    .url('BITBUCKET_BASE_URL must be a valid URL')
+    .optional(),
+  BITBUCKET_API_TOKEN: z.string().min(1, 'BITBUCKET_API_TOKEN is required').optional(),
+  BITBUCKET_API_USER: z.string().min(1, 'BITBUCKET_API_USER is required').optional(),
+  BITBUCKET_WORKSPACE: z.string().min(1, 'BITBUCKET_WORKSPACE is required').optional(),
+  BITBUCKET_REPO_SLUG: z.string().min(1, 'BITBUCKET_REPO_SLUG is required').optional(),
+  BITBUCKET_REPOS: z.string().optional(),
 })
 
 export type Env = z.infer<typeof envSchema>

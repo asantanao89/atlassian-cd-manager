@@ -3,6 +3,7 @@ import cors from '@fastify/cors'
 import rateLimit from '@fastify/rate-limit'
 import { getEnv } from './env'
 import { healthRoutes } from './routes/health.routes'
+import { bitbucketRoutes } from './routes/bitbucket.routes'
 import { jiraRoutes } from './routes/jira.routes'
 
 async function start(): Promise<void> {
@@ -28,6 +29,7 @@ async function start(): Promise<void> {
 
   await server.register(healthRoutes)
   await server.register(jiraRoutes, { prefix: '/api/jira' })
+  await server.register(bitbucketRoutes, { prefix: '/api/bitbucket' })
 
   server.setErrorHandler((error, _req, reply) => {
     server.log.error({ err: error }, 'Unhandled server error')
