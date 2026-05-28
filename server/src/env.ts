@@ -15,12 +15,19 @@ const envSchema = z.object({
     .optional(),
   BITBUCKET_API_TOKEN: z.string().min(1, 'BITBUCKET_API_TOKEN is required').optional(),
   BITBUCKET_API_USER: z.string().min(1, 'BITBUCKET_API_USER is required').optional(),
+  BITBUCKET_APP_PASSWORD: z.string().min(1, 'BITBUCKET_APP_PASSWORD is required').optional(),
+  BITBUCKET_USERNAME: z.string().min(1, 'BITBUCKET_USERNAME is required').optional(),
   BITBUCKET_WORKSPACE: z.string().min(1, 'BITBUCKET_WORKSPACE is required').optional(),
   BITBUCKET_REPO_SLUG: z.string().min(1, 'BITBUCKET_REPO_SLUG is required').optional(),
   BITBUCKET_REPOS: z.string().optional(),
 })
 
-export type Env = z.infer<typeof envSchema>
+type RawEnv = z.infer<typeof envSchema>
+
+export interface Env extends RawEnv {
+  BITBUCKET_API_TOKEN?: string
+  BITBUCKET_API_USER?: string
+}
 
 let _env: Env | null = null
 let _dotenvLoaded = false
@@ -57,6 +64,11 @@ export function getEnv(): Env {
     process.exit(1)
   }
 
-  _env = result.data
+  const data = result.data
+  _env = {
+    ...data,
+    BITBUCKET_API_TOKEN: data.BITBUCKET_API_TOKEN ?? data.BITBUCKET_APP_PASSWORD,
+    BITBUCKET_API_USER: data.BITBUCKET_API_USER ?? data.BITBUCKET_USERNAME,
+  }
   return _env
 }

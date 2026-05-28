@@ -57,8 +57,8 @@ JIRA_API_TOKEN=your-api-token
 BITBUCKET_BASE_URL=https://api.bitbucket.org/2.0
 BITBUCKET_WORKSPACE=your-workspace
 BITBUCKET_REPO_SLUG=your-repository-slug
-BITBUCKET_USERNAME=your-bitbucket-username
-BITBUCKET_APP_PASSWORD=your-bitbucket-app-password
+BITBUCKET_API_USER=your-bitbucket-username-or-email
+BITBUCKET_API_TOKEN=your-bitbucket-app-password
 SERVER_PORT=3000
 CLIENT_ORIGIN=http://localhost:5173
 ```
@@ -71,8 +71,10 @@ Para habilitar la vista **Pull Request** se requieren credenciales de Bitbucket 
 
 - `BITBUCKET_WORKSPACE`
 - `BITBUCKET_REPO_SLUG`
-- `BITBUCKET_USERNAME`
-- `BITBUCKET_APP_PASSWORD`
+- `BITBUCKET_API_USER`
+- `BITBUCKET_API_TOKEN`
+
+> También se aceptan los nombres antiguos `BITBUCKET_USERNAME` y `BITBUCKET_APP_PASSWORD` por compatibilidad.
 
 Flujo implementado en la vista:
 
