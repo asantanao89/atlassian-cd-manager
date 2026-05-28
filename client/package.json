@@ -1,5 +1,5 @@
 {
-  "name": "jira-ttm-client",
+  "name": "atlassian-cd-manager-client",
   "version": "1.0.0",
   "private": true,
   "scripts": {

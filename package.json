@@ -1,5 +1,5 @@
 {
-  "name": "jira-time-tracking-manager",
+  "name": "atlassian-cd-manager",
   "version": "1.0.0",
   "private": true,
   "scripts": {

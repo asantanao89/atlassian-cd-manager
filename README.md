@@ -1,4 +1,4 @@
-# Jira Time Tracking Manager
+# Atlassian CD Manager
 
 SPA + BFF para gestionar el time tracking (worklogs) de issues de Jira Cloud desde una interfaz local.
 
@@ -57,8 +57,6 @@ JIRA_API_TOKEN=your-api-token
 BITBUCKET_BASE_URL=https://api.bitbucket.org/2.0
 BITBUCKET_WORKSPACE=your-workspace
 BITBUCKET_REPO_SLUG=your-repository-slug
-BITBUCKET_LOCAL_REPOS_ROOT=
-BITBUCKET_LOCAL_REPOS_MAP=
 BITBUCKET_USERNAME=your-bitbucket-username
 BITBUCKET_APP_PASSWORD=your-bitbucket-app-password
 SERVER_PORT=3000
@@ -66,26 +64,6 @@ CLIENT_ORIGIN=http://localhost:5173
 ```
 
 > ⚠️ **Nunca commitees el archivo `.env` real.** Ya está en `.gitignore`.
-
-### Reutilizar clones locales al crear ramas
-
-La creación de ramas puede reutilizar repositorios locales existentes para evitar `git clone` temporal en cada operación.
-
-- `BITBUCKET_LOCAL_REPOS_ROOT` (opcional): ruta raíz donde cada repo vive en una carpeta con el mismo `repoSlug`.
-- `BITBUCKET_LOCAL_REPOS_MAP` (opcional): mapeo explícito `repoSlug=/ruta/repo`, separado por comas.
-
-Ejemplo:
-
-```env
-BITBUCKET_LOCAL_REPOS_ROOT=/Users/tu-usuario/work/repos
-BITBUCKET_LOCAL_REPOS_MAP=proshop=/Users/tu-usuario/work/proshop,otro-repo=/Volumes/dev/otro-repo
-```
-
-Orden de resolución al crear rama:
-
-1. Busca primero en `BITBUCKET_LOCAL_REPOS_MAP`.
-2. Si no encuentra, intenta `BITBUCKET_LOCAL_REPOS_ROOT/<repoSlug>`.
-3. Si no hay repositorio local válido, usa el flujo actual de clone temporal como fallback.
 
 ### Pull Request (Bitbucket)
 
@@ -167,8 +145,8 @@ Pasos para servir la aplicación en un servidor Linux con nginx y systemd.
 ### 1. Clonar y construir
 
 ```bash
-git clone <repo> /var/www/jira-time-tracker
-cd /var/www/jira-time-tracker
+git clone <repo> /var/www/atlassian-cd-manager
+cd /var/www/atlassian-cd-manager
 npm install
 npm --prefix client install
 npm --prefix server install
@@ -177,7 +155,7 @@ npm --prefix server install
 ### 2. Configurar variables de entorno del servidor
 
 ```bash
-cp .env.example /var/www/jira-time-tracker/server/.env
+cp .env.example /var/www/atlassian-cd-manager/server/.env
 ```
 
 Edita `server/.env` con los valores reales y ajusta `CLIENT_ORIGIN` al dominio con HTTPS:
@@ -187,7 +165,7 @@ JIRA_BASE_URL=https://your-domain.atlassian.net
 JIRA_EMAIL=your-email@example.com
 JIRA_API_TOKEN=your-api-token
 SERVER_PORT=3000
-CLIENT_ORIGIN=https://jira-time-tracker.example.com
+CLIENT_ORIGIN=https://atlassian-cd-manager.example.com
 ```
 
 ### 3. Configurar variable de entorno del cliente
@@ -195,7 +173,7 @@ CLIENT_ORIGIN=https://jira-time-tracker.example.com
 Crea `client/.env.production` para que el build use rutas relativas y nginx enrute las llamadas `/api/` al servidor Fastify:
 
 ```bash
-echo "VITE_API_BASE_URL=" > /var/www/jira-time-tracker/client/.env.production
+echo "VITE_API_BASE_URL=" > /var/www/atlassian-cd-manager/client/.env.production
 ```
 
 > Sin este archivo, el cliente usará el fallback `http://localhost:3000` hardcodeado en el bundle, causando errores CORS.
@@ -203,7 +181,7 @@ echo "VITE_API_BASE_URL=" > /var/www/jira-time-tracker/client/.env.production
 ### 4. Compilar
 
 ```bash
-cd /var/www/jira-time-tracker
+cd /var/www/atlassian-cd-manager
 npm run build
 ```
 
@@ -211,23 +189,23 @@ Los estáticos del cliente quedan en `client/dist/`.
 
 ### 5. Configurar nginx
 
-Crea `/etc/nginx/sites-available/jira-time-tracker`:
+Crea `/etc/nginx/sites-available/atlassian-cd-manager`:
 
 ```nginx
 server {
     listen 80;
-    server_name jira-time-tracker.example.com;
+    server_name atlassian-cd-manager.example.com;
     return 301 https://$host$request_uri;
 }
 
 server {
     listen 443 ssl http2;
-    server_name jira-time-tracker.example.com;
+    server_name atlassian-cd-manager.example.com;
 
     ssl_certificate     /etc/ssl/certs/your-cert.bundle;
     ssl_certificate_key /etc/ssl/private/your-cert.key;
 
-    root /var/www/jira-time-tracker/client/dist;
+    root /var/www/atlassian-cd-manager/client/dist;
     index index.html;
 
     # Frontend (Vue SPA)
@@ -248,28 +226,28 @@ server {
 Activa el sitio:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/jira-time-tracker /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/atlassian-cd-manager /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
 ### 6. Configurar el servicio systemd
 
-Crea `/etc/systemd/system/jira-time-tracker.service`:
+Crea `/etc/systemd/system/atlassian-cd-manager.service`:
 
 ```ini
 [Unit]
-Description=Jira Time Tracking Manager API
+Description=Atlassian CD Manager API
 After=network.target
 
 [Service]
 Type=simple
 User=www-data
-WorkingDirectory=/var/www/jira-time-tracker/server
+WorkingDirectory=/var/www/atlassian-cd-manager/server
 ExecStart=/usr/local/bin/node dist/index.js
 Restart=on-failure
 RestartSec=5
-EnvironmentFile=/var/www/jira-time-tracker/server/.env
+EnvironmentFile=/var/www/atlassian-cd-manager/server/.env
 
 [Install]
 WantedBy=multi-user.target
@@ -287,9 +265,9 @@ Activa e inicia el servicio:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable jira-time-tracker
-sudo systemctl start jira-time-tracker
-sudo systemctl status jira-time-tracker
+sudo systemctl enable atlassian-cd-manager
+sudo systemctl start atlassian-cd-manager
+sudo systemctl status atlassian-cd-manager
 ```
 
 ### 7. Verificar
@@ -299,16 +277,16 @@ sudo systemctl status jira-time-tracker
 curl http://localhost:3000/api/jira/me
 
 # El proxy de nginx funciona
-curl https://jira-time-tracker.example.com/api/jira/me
+curl https://atlassian-cd-manager.example.com/api/jira/me
 ```
 
 ### Actualizar tras cambios en el repo
 
 ```bash
-cd /var/www/jira-time-tracker
+cd /var/www/atlassian-cd-manager
 git pull
 npm run build
-sudo systemctl restart jira-time-tracker
+sudo systemctl restart atlassian-cd-manager
 ```
 
 ---

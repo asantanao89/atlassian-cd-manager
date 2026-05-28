@@ -1,5 +1,5 @@
 {
-  "name": "jira-ttm-server",
+  "name": "atlassian-cd-manager-server",
   "version": "1.0.0",
   "private": true,
   "scripts": {

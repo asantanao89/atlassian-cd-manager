@@ -1,4 +1,4 @@
-# Prompt para Copilot Cloud: Jira Time Tracking Manager SPA
+# Prompt para Copilot Cloud: Atlassian CD Manager SPA
 
 Actúa como un equipo senior de frontend, arquitectura de integración y seguridad. Quiero que generes una aplicación para modificar el time tracking de historias y subtareas de Jira Cloud usando Vue.js moderno, Vite y TypeScript.
 
@@ -8,7 +8,7 @@ El objetivo no es crear una demo superficial, sino una primera versión funciona
 
 ## 1. Objetivo del proyecto
 
-Crear una SPA llamada `jira-time-tracking-manager` que permita:
+Crear una SPA llamada `atlassian-cd-manager` que permita:
 
 1. Conectarse a Jira Cloud usando un API token ya existente.
 2. Buscar historias y subtareas mediante JQL.
@@ -608,7 +608,7 @@ No implementar login multiusuario en la primera versión. Esta app es una herram
 Generar una estructura similar a esta:
 
 ```text
-jira-time-tracking-manager/
+atlassian-cd-manager/
   client/
     index.html
     package.json
