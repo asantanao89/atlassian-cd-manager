@@ -83,6 +83,28 @@ Flujo implementado en la vista:
 3. Crear pull request.
 4. Mostrar resumen del PR creado con enlace para abrirlo en una nueva pestaña.
 
+### Notificaciones Discord (opcional)
+
+Para habilitar el botón **Notificar a Discord** en las tablas de issues, define `DISCORD_CHANNELS` en `server/.env` como un array JSON en una sola línea:
+
+```env
+DISCORD_CHANNELS=[{"id":"dev","name":"#desarrollo","webhookUrl":"https://discord.com/api/webhooks/..."},{"id":"qa","name":"#qa","webhookUrl":"https://discord.com/api/webhooks/..."}]
+```
+
+Cada entrada necesita:
+
+- `id`: identificador interno (único)
+- `name`: nombre mostrado en el selector del popup
+- `webhookUrl`: URL del webhook de Discord (nunca se expone al navegador)
+
+Para crear un webhook en Discord: **Server Settings → Integrations → Webhooks → New Webhook**. Asigna el webhook al canal deseado y copia la URL.
+
+Flujo en la app:
+
+1. Pulsar el botón de Discord en una fila de issue.
+2. Seleccionar canal y revisar/editar el mensaje pre-rellenado (enlace Jira + PRs abiertos).
+3. Enviar; el servidor reenvía el mensaje al webhook configurado.
+
 ---
 
 ## Arrancar en local

@@ -20,13 +20,39 @@ const envSchema = z.object({
   BITBUCKET_WORKSPACE: z.string().min(1, 'BITBUCKET_WORKSPACE is required').optional(),
   BITBUCKET_REPO_SLUG: z.string().min(1, 'BITBUCKET_REPO_SLUG is required').optional(),
   BITBUCKET_REPOS: z.string().optional(),
+  DISCORD_CHANNELS: z.string().optional(),
 })
+
+const discordChannelSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  webhookUrl: z.string().url(),
+})
+
+export interface DiscordChannelConfig {
+  id: string
+  name: string
+  webhookUrl: string
+}
 
 type RawEnv = z.infer<typeof envSchema>
 
 export interface Env extends RawEnv {
   BITBUCKET_API_TOKEN?: string
   BITBUCKET_API_USER?: string
+  discordChannels: DiscordChannelConfig[]
+}
+
+function parseDiscordChannels(raw: string | undefined): DiscordChannelConfig[] {
+  if (!raw?.trim()) return []
+
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    return z.array(discordChannelSchema).parse(parsed)
+  } catch {
+    console.warn('⚠️ DISCORD_CHANNELS is invalid JSON or schema; Discord notifications disabled.')
+    return []
+  }
 }
 
 let _env: Env | null = null
@@ -69,6 +95,7 @@ export function getEnv(): Env {
     ...data,
     BITBUCKET_API_TOKEN: data.BITBUCKET_API_TOKEN ?? data.BITBUCKET_APP_PASSWORD,
     BITBUCKET_API_USER: data.BITBUCKET_API_USER ?? data.BITBUCKET_USERNAME,
+    discordChannels: parseDiscordChannels(data.DISCORD_CHANNELS),
   }
   return _env
 }
