@@ -55,16 +55,13 @@ function formatPullRequestLine(pr: JiraOpenPullRequest): string {
 }
 
 function buildMessage(
-  channelId: string,
   issueKey: string,
   issueSummary: string,
   baseUrl: string,
   pullRequests: JiraOpenPullRequest[],
 ): string {
   const jiraUrl = baseUrl ? `${baseUrl}/browse/${encodeURIComponent(issueKey)}` : issueKey
-  const lines = channelId === 'dev-hobbit'
-    ? ['@Hobbit', '']
-    : []
+  const lines: string[] = []
 
   lines.push(
     'Tarea lista para revisión',
@@ -137,7 +134,6 @@ watch(selectedChannelId, (channelId) => {
   }
 
   message.value = buildMessage(
-    channelId,
     props.issueKey,
     props.issueSummary ?? props.issueKey,
     jiraBaseUrl.value,
