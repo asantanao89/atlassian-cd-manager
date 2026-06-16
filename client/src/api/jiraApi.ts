@@ -6,6 +6,8 @@ import type {
   JiraIssueSummary,
   JiraIssueWithWorklogs,
   JiraOpenPullRequest,
+  JiraIssueTransitionsResponse,
+  UpdateIssueStatusParams,
   PullRequestBranchList,
   JiraUser,
   JiraWorklog,
@@ -74,6 +76,20 @@ export const jiraApi = {
   getOpenPullRequestsForParent: (parentKey: string): Promise<{ pullRequests: JiraOpenPullRequest[] }> =>
     httpClient.get<{ pullRequests: JiraOpenPullRequest[] }>(
       `/api/jira/issues/${encodeURIComponent(parentKey)}/open-pull-requests`,
+    ),
+
+  getIssueTransitions: (issueKey: string): Promise<JiraIssueTransitionsResponse> =>
+    httpClient.get<JiraIssueTransitionsResponse>(
+      `/api/jira/issues/${encodeURIComponent(issueKey)}/transitions`,
+    ),
+
+  transitionIssue: (
+    issueKey: string,
+    params: UpdateIssueStatusParams,
+  ): Promise<{ success: true; statusName: string }> =>
+    httpClient.post<{ success: true; statusName: string }>(
+      `/api/jira/issues/${encodeURIComponent(issueKey)}/transitions`,
+      params,
     ),
 
   getPullRequestBranches: (): Promise<PullRequestBranchList> =>

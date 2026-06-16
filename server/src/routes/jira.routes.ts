@@ -8,6 +8,7 @@ import {
   createWorklogSchema,
   updateWorklogSchema,
   updateTimetrackingSchema,
+  transitionIssueSchema,
 } from '../schemas/jira.schemas'
 import { buildAdfComment } from '../utils/adf'
 
@@ -34,6 +35,10 @@ interface OpenPullRequest {
   targetBranch: string | null
   repository: string | null
   author: string | null
+}
+
+interface JiraTransitionResponse {
+  transitions?: Array<Record<string, unknown>>
 }
 
 function parseOpenPullRequests(payload: unknown): OpenPullRequest[] {
@@ -194,6 +199,63 @@ export async function jiraRoutes(fastify: FastifyInstance): Promise<void> {
       if (!issueId) return reply.send({ pullRequests: [] })
 
       return reply.send({ pullRequests: await fetchOpenPullRequestsForIssueId(jira, issueId) })
+    },
+  )
+
+  // GET /api/jira/issues/:issueKey/transitions
+  fastify.get(
+    '/issues/:issueKey/transitions',
+    async (req: FastifyRequest<{ Params: { issueKey: string } }>, reply) => {
+      const { issueKey } = req.params
+      const result = await jira.get<JiraTransitionResponse>(
+        `/rest/api/3/issue/${encodeURIComponent(issueKey)}/transitions`,
+      )
+      if (!result.ok) return sendJiraError(reply, result.error)
+
+      const transitions = (result.data.transitions ?? []).map((transition) => {
+        const to = (transition.to ?? null) as Record<string, unknown> | null
+        return {
+          id: String(transition.id ?? ''),
+          name: String(transition.name ?? ''),
+          toStatusName: String(to?.name ?? ''),
+        }
+      }).filter((transition) => transition.id && transition.name)
+
+      return reply.send({ transitions })
+    },
+  )
+
+  // POST /api/jira/issues/:issueKey/transitions
+  fastify.post(
+    '/issues/:issueKey/transitions',
+    async (
+      req: FastifyRequest<{ Params: { issueKey: string }; Body: { transitionId?: string } }>,
+      reply,
+    ) => {
+      const { issueKey } = req.params
+      const parsed = transitionIssueSchema.safeParse(req.body)
+      if (!parsed.success) {
+        return reply.status(400).send({ error: 'Invalid request', details: parsed.error.errors })
+      }
+
+      const result = await jira.post<unknown>(
+        `/rest/api/3/issue/${encodeURIComponent(issueKey)}/transitions`,
+        { transition: { id: parsed.data.transitionId } },
+      )
+      if (!result.ok) return sendJiraError(reply, result.error)
+
+      const issueResult = await jira.get<Record<string, unknown>>(
+        `/rest/api/3/issue/${encodeURIComponent(issueKey)}?fields=status`,
+      )
+      if (!issueResult.ok) return sendJiraError(reply, issueResult.error)
+
+      const fields = (issueResult.data.fields ?? null) as Record<string, unknown> | null
+      const status = (fields?.status ?? null) as Record<string, unknown> | null
+
+      return reply.send({
+        success: true,
+        statusName: String(status?.name ?? ''),
+      })
     },
   )
 

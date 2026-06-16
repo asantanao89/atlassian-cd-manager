@@ -49,6 +49,20 @@ export interface JiraOpenPullRequest {
   author: string | null
 }
 
+export interface JiraIssueTransition {
+  id: string
+  name: string
+  toStatusName: string
+}
+
+export interface JiraIssueTransitionsResponse {
+  transitions: JiraIssueTransition[]
+}
+
+export interface UpdateIssueStatusParams {
+  transitionId: string
+}
+
 export interface PullRequestBranchList {
   repoSlug: string
   branches: string[]

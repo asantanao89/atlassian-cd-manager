@@ -71,3 +71,7 @@ export const updateTimetrackingSchema = z
   .refine((data) => data.originalEstimate !== undefined || data.remainingEstimate !== undefined, {
     message: 'At least one of originalEstimate or remainingEstimate must be provided',
   })
+
+export const transitionIssueSchema = z.object({
+  transitionId: z.string().min(1, 'transitionId is required'),
+})
