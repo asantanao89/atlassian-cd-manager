@@ -20,6 +20,7 @@ const channels = ref<DiscordChannel[]>([])
 const selectedChannelId = ref('')
 const message = ref('')
 const jiraBaseUrl = ref('')
+const pullRequests = ref<JiraOpenPullRequest[]>([])
 
 const isLoading = ref(false)
 const isSending = ref(false)
@@ -54,19 +55,24 @@ function formatPullRequestLine(pr: JiraOpenPullRequest): string {
 }
 
 function buildMessage(
+  channelId: string,
   issueKey: string,
   issueSummary: string,
   baseUrl: string,
   pullRequests: JiraOpenPullRequest[],
 ): string {
   const jiraUrl = baseUrl ? `${baseUrl}/browse/${encodeURIComponent(issueKey)}` : issueKey
-  const lines = [
+  const lines = channelId === 'dev-hobbit'
+    ? ['@Hobbit', '']
+    : []
+
+  lines.push(
     'Tarea lista para revisión',
     '',
     `Issue: ${issueKey} — ${issueSummary}`,
     `Jira: ${jiraUrl}`,
     '',
-  ]
+  )
 
   if (pullRequests.length === 0) {
     lines.push('Pull requests: ninguno abierto')
@@ -90,6 +96,7 @@ async function loadDialogData(): Promise<void> {
   channels.value = []
   selectedChannelId.value = ''
   message.value = ''
+  pullRequests.value = []
 
   try {
     const [connectionInfo, channelsResponse, pullRequestsResponse] = await Promise.all([
@@ -101,16 +108,7 @@ async function loadDialogData(): Promise<void> {
     jiraBaseUrl.value = connectionInfo.jiraBaseUrl.replace(/\/$/, '')
     channels.value = channelsResponse.channels
 
-    if (channelsResponse.channels.length > 0) {
-      selectedChannelId.value = channelsResponse.channels[0].id
-    }
-
-    message.value = buildMessage(
-      props.issueKey,
-      props.issueSummary ?? props.issueKey,
-      jiraBaseUrl.value,
-      pullRequestsResponse.pullRequests,
-    )
+    pullRequests.value = pullRequestsResponse.pullRequests
   } catch (error) {
     if (error instanceof HttpError && error.statusCode === 503) {
       loadError.value = error.message
@@ -132,6 +130,21 @@ watch(
   },
 )
 
+watch(selectedChannelId, (channelId) => {
+  if (!channelId || !props.issueKey) {
+    message.value = ''
+    return
+  }
+
+  message.value = buildMessage(
+    channelId,
+    props.issueKey,
+    props.issueSummary ?? props.issueKey,
+    jiraBaseUrl.value,
+    pullRequests.value,
+  )
+})
+
 function cancel(): void {
   emit('close')
 }
@@ -144,15 +157,9 @@ async function send(): Promise<void> {
   sendSuccess.value = false
 
   try {
-    const baseMessage = message.value.trim()
-    const outgoingMessage =
-      selectedChannelId.value === 'dev-hobbit' && !baseMessage.startsWith('@Hobbit')
-        ? `@Hobbit\n${baseMessage}`
-        : baseMessage
-
     await discordApi.notify({
       channelId: selectedChannelId.value,
-      message: outgoingMessage,
+      message: message.value.trim(),
     })
     sendSuccess.value = true
     window.setTimeout(() => {
@@ -180,7 +187,7 @@ async function send(): Promise<void> {
           <span class="font-mono font-medium text-gray-800">{{ props.issueKey }}</span>
         </p>
 
-        <div v-if="isLoading" class="text-sm text-gray-500">Cargando canales y mensaje...</div>
+        <div v-if="isLoading" class="text-sm text-gray-500">Cargando canales...</div>
 
         <div v-else-if="loadError" class="text-sm text-red-600">{{ loadError }}</div>
 
