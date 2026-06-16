@@ -12,7 +12,7 @@
         <header class="space-y-1">
           <h2 class="text-lg font-semibold text-gray-900">Starter Nada</h2>
           <p class="text-3xl font-bold text-gray-900">
-            19,99<span class="text-base font-medium text-gray-500"> / mes</span>
+            19,99€<span class="text-base font-medium text-gray-500"> / mes</span>
           </p>
         </header>
 
@@ -34,7 +34,7 @@
           </p>
           <h2 class="text-lg font-semibold text-gray-900">Pro Nada Plus</h2>
           <p class="text-3xl font-bold text-gray-900">
-            49,99<span class="text-base font-medium text-gray-500"> / mes</span>
+            49,99€<span class="text-base font-medium text-gray-500"> / mes</span>
           </p>
         </header>
 
@@ -53,7 +53,7 @@
         <header class="space-y-1">
           <h2 class="text-lg font-semibold text-gray-900">Enterprise Todo</h2>
           <p class="text-3xl font-bold text-gray-900">
-            99,99<span class="text-base font-medium text-gray-500"> / mes</span>
+            99,99€<span class="text-base font-medium text-gray-500"> / mes</span>
           </p>
         </header>
 
