@@ -71,7 +71,7 @@ function buildMessage(
   if (pullRequests.length === 0) {
     lines.push('Pull requests: ninguno abierto')
   } else {
-    lines.push('Pull requests abiertos:')
+    lines.push('Pull requests:')
     for (const pr of pullRequests) {
       lines.push(formatPullRequestLine(pr))
     }
@@ -144,9 +144,15 @@ async function send(): Promise<void> {
   sendSuccess.value = false
 
   try {
+    const baseMessage = message.value.trim()
+    const outgoingMessage =
+      selectedChannelId.value === 'dev-hobbit' && !baseMessage.startsWith('@Hobbit')
+        ? `@Hobbit\n${baseMessage}`
+        : baseMessage
+
     await discordApi.notify({
       channelId: selectedChannelId.value,
-      message: message.value.trim(),
+      message: outgoingMessage,
     })
     sendSuccess.value = true
     window.setTimeout(() => {
