@@ -5,6 +5,7 @@ import HistoricView from '../views/HistoricView.vue'
 import TimerView from '../views/TimerView.vue'
 import BranchView from '../views/BranchView.vue'
 import PullRequestView from '../views/PullRequestView.vue'
+import PricingView from '../views/PricingView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -48,6 +49,11 @@ const router = createRouter({
       path: '/pull-request',
       name: 'pull-request',
       component: PullRequestView,
+    },
+    {
+      path: '/pricing',
+      name: 'pricing',
+      component: PricingView,
     },
   ],
 })
