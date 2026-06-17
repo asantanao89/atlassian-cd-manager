@@ -31,6 +31,10 @@ watch(
 
 const badgeClass = computed(() => issueStatusBadgeClass(visibleStatus.value))
 
+function transitionStatusLabel(transition: JiraIssueTransition): string {
+  return transition.toStatusName || transition.name
+}
+
 async function loadTransitions(): Promise<void> {
   isLoading.value = true
   loadError.value = null
@@ -130,11 +134,16 @@ onBeforeUnmount(() => {
         v-for="transition in transitions"
         :key="transition.id"
         type="button"
-        class="block w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100"
+        class="block w-full px-3 py-1.5 text-left text-xs hover:bg-gray-100"
         :disabled="isSubmitting"
         @click.stop="applyTransition(transition)"
       >
-        {{ transition.toStatusName || transition.name }}
+        <span
+          class="inline-flex rounded px-1.5 py-0.5 font-medium"
+          :class="issueStatusBadgeClass(transitionStatusLabel(transition))"
+        >
+          {{ transitionStatusLabel(transition) }}
+        </span>
       </button>
     </div>
 
