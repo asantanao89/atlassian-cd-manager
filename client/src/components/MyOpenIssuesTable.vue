@@ -168,7 +168,7 @@ function onStatusChanged(payload: { issueKey: string; newStatusName: string }): 
 </script>
 
 <template>
-  <div class="bg-white border border-gray-200 rounded-lg overflow-visible">
+  <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
     <div v-if="props.isLoading" class="flex items-center justify-center py-10 text-gray-500 text-sm">
       Cargando mis issues abiertas...
     </div>
