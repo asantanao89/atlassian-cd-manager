@@ -119,7 +119,7 @@ onBeforeUnmount(() => {
 
     <div
       v-if="isOpen"
-      class="absolute z-20 mt-1 min-w-44 rounded border border-gray-200 bg-white shadow-lg py-1"
+      class="absolute z-20 mt-1 flex min-w-44 flex-col whitespace-normal rounded border border-gray-200 bg-white shadow-lg py-1"
     >
       <div v-if="isLoading" class="px-3 py-2 text-xs text-gray-500">Cargando estados...</div>
       <div v-else-if="loadError" class="px-3 py-2 text-xs text-red-600">{{ loadError }}</div>
@@ -130,7 +130,7 @@ onBeforeUnmount(() => {
         v-for="transition in transitions"
         :key="transition.id"
         type="button"
-        class="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100"
+        class="block w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100"
         :disabled="isSubmitting"
         @click.stop="applyTransition(transition)"
       >
