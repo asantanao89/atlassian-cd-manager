@@ -74,7 +74,8 @@ class BitbucketClient {
         method: 'GET',
         headers: this.buildHeaders(),
       })
-      const data = (await response.json()) as unknown
+      const text = await response.text()
+      const data = text ? (JSON.parse(text) as unknown) : null
       if (!response.ok) return { ok: false, error: mapBitbucketError(response.status, data) }
       return { ok: true, data: data as T, status: response.status }
     } catch {
@@ -89,7 +90,8 @@ class BitbucketClient {
         headers: this.buildHeaders(),
         body: JSON.stringify(body),
       })
-      const data = (await response.json()) as unknown
+      const text = await response.text()
+      const data = text ? (JSON.parse(text) as unknown) : null
       if (!response.ok) return { ok: false, error: mapBitbucketError(response.status, data) }
       return { ok: true, data: data as T, status: response.status }
     } catch {
@@ -104,9 +106,10 @@ class BitbucketClient {
    */
   async listBranches(repoSlug: string, query?: string): Promise<string[]> {
     const branches: string[] = []
-    const qs = query ? `&q=name ~ "${query}"` : ''
+    const params = new URLSearchParams({ pagelen: '100' })
+    if (query) params.set('q', `name ~ "${query}"`)
     let url: string | null =
-      `/repositories/${this.workspace}/${repoSlug}/refs/branches?pagelen=100${qs}`
+      `/repositories/${this.workspace}/${repoSlug}/refs/branches?${params.toString()}`
 
     while (url && branches.length < 500) {
       const result: RequestResult<BitbucketBranchListResponse> = await this.get<BitbucketBranchListResponse>(url)
