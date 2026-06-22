@@ -42,14 +42,21 @@ function toJiraDate(date: Date): string {
   return `${y}-${mo}-${d}T${h}:${mi}:${s}.${ms}${sign}${tzH}${tzM}`
 }
 
-function localDatetimeValue(dateStr?: string): string {
+function localDateValue(dateStr?: string): string {
   const d = dateStr ? new Date(dateStr) : new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+function localTimeValue(dateStr?: string): string {
+  const d = dateStr ? new Date(dateStr) : new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 const timeSpent = ref(props.worklog?.timeSpent ?? '')
-const startedLocal = ref(localDatetimeValue(props.worklog?.started ?? props.initialStartedAt))
+const startedDate = ref(localDateValue(props.worklog?.started ?? props.initialStartedAt))
+const startedTime = ref(localTimeValue(props.worklog?.started ?? props.initialStartedAt))
 const comment = ref(props.worklog?.commentText ?? '')
 const adjustEstimate = ref<'auto' | 'leave' | 'new' | 'manual'>('auto')
 const newEstimate = ref('')
@@ -63,8 +70,10 @@ function validate(): boolean {
   } else if (!isValidJiraDuration(timeSpent.value)) {
     errors.value.timeSpent = 'Formato inválido. Ej: 1h 30m, 2d, 1w'
   }
-  if (!startedLocal.value) {
+  if (!startedDate.value) {
     errors.value.started = 'La fecha de inicio es obligatoria'
+  } else if (!startedTime.value) {
+    errors.value.started = 'La hora de inicio es obligatoria'
   }
   if (adjustEstimate.value === 'new' && newEstimate.value && !isValidJiraDuration(newEstimate.value)) {
     errors.value.newEstimate = 'Formato inválido'
@@ -82,7 +91,7 @@ function validate(): boolean {
 }
 
 function buildParams(): CreateWorklogParams {
-  const started = toJiraDate(new Date(startedLocal.value))
+  const started = toJiraDate(new Date(`${startedDate.value}T${startedTime.value}`))
   const params: CreateWorklogParams = {
     timeSpent: timeSpent.value.trim(),
     started,
@@ -160,12 +169,20 @@ function addToPending(): void {
         <label class="block text-xs font-medium text-gray-600 mb-1">
           Fecha y hora de inicio <span class="text-red-500">*</span>
         </label>
-        <input
-          v-model="startedLocal"
-          type="datetime-local"
-          class="w-full border rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          :class="errors.started ? 'border-red-400' : 'border-gray-300'"
-        />
+        <div class="grid grid-cols-2 gap-2">
+          <input
+            v-model="startedDate"
+            type="date"
+            class="w-full border rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            :class="errors.started ? 'border-red-400' : 'border-gray-300'"
+          />
+          <input
+            v-model="startedTime"
+            type="time"
+            class="w-full border rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            :class="errors.started ? 'border-red-400' : 'border-gray-300'"
+          />
+        </div>
         <p v-if="errors.started" class="text-xs text-red-600 mt-1">{{ errors.started }}</p>
       </div>
 
