@@ -56,7 +56,8 @@ class JiraClient {
         headers: this.buildHeaders(),
         body: JSON.stringify(body),
       })
-      const data = (await response.json()) as unknown
+      const text = await response.text()
+      const data = text ? (JSON.parse(text) as unknown) : null
       if (!response.ok) return { ok: false, error: mapJiraError(response.status, data) }
       return { ok: true, data: data as T, status: response.status }
     } catch {
