@@ -23,7 +23,8 @@ export function mapBitbucketError(status: number, body: unknown): BitbucketApiEr
     case 401:
       return {
         statusCode: 401,
-        message: 'Autenticación inválida. Revisa BITBUCKET_API_TOKEN en el servidor.',
+        message:
+          'Autenticación inválida. Con API tokens de Atlassian (ATATT...), BITBUCKET_API_USER debe ser tu email de Atlassian, no tu username de Bitbucket.',
       }
     case 403:
       return {

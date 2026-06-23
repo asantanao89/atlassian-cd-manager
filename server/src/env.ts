@@ -76,6 +76,16 @@ function loadDotEnvFiles(): void {
   _dotenvLoaded = true
 }
 
+function resolveBitbucketApiUser(data: z.infer<typeof envSchema>): string | undefined {
+  const user = data.BITBUCKET_API_USER ?? data.BITBUCKET_USERNAME
+  const token = data.BITBUCKET_API_TOKEN ?? data.BITBUCKET_APP_PASSWORD
+  // Atlassian API tokens (ATATT...) require the account email for Bitbucket REST auth.
+  if (token?.startsWith('ATATT') && user && !user.includes('@')) {
+    return data.JIRA_EMAIL
+  }
+  return user
+}
+
 export function getEnv(): Env {
   if (_env) return _env
   loadDotEnvFiles()
@@ -94,7 +104,7 @@ export function getEnv(): Env {
   _env = {
     ...data,
     BITBUCKET_API_TOKEN: data.BITBUCKET_API_TOKEN ?? data.BITBUCKET_APP_PASSWORD,
-    BITBUCKET_API_USER: data.BITBUCKET_API_USER ?? data.BITBUCKET_USERNAME,
+    BITBUCKET_API_USER: resolveBitbucketApiUser(data),
     discordChannels: parseDiscordChannels(data.DISCORD_CHANNELS),
   }
   return _env
