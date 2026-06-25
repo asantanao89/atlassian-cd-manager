@@ -151,7 +151,7 @@ const { mutate: deleteWorklogFromReview, isPending: isDeletingWorklog } = useMut
     queryClient.invalidateQueries({ queryKey: ['dashboard-my-open-issues'] })
     queryClient.invalidateQueries({ queryKey: ['dashboard-my-month-issues'] })
     queryClient.invalidateQueries({ queryKey: ['dashboard-monthly-issues-with-worklogs'] })
-    queryClient.invalidateQueries({ queryKey: ['my-monthly-worklogs'] })
+    queryClient.invalidateQueries({ queryKey: ['monthly-worklogs'] })
   },
 })
 
