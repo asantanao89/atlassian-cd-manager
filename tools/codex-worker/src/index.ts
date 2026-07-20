@@ -116,7 +116,13 @@ if (!TOKEN) {
 }
 
 server.listen(PORT, HOST, () => {
+  const model = (process.env.CODEX_MODEL ?? '').trim()
   console.log(`✅ Codex worker listening on http://${HOST}:${PORT}`)
   console.log('   Endpoints: GET /health, POST /improve')
   console.log('   Output schema: improvedValue, missingSections, followUpQuestions')
+  console.log(
+    model
+      ? `   Model: ${model} (CODEX_MODEL)`
+      : '   Model: Codex CLI default (set CODEX_MODEL to override)',
+  )
 })

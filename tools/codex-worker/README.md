@@ -66,12 +66,13 @@ Same value in **both**:
 ```env
 # Laptop server/.env (minimum for the worker)
 CODEX_WORKER_TOKEN=generate-a-long-random-secret
+# Optional: pin model for codex exec -m (omit to use CLI default)
+# CODEX_MODEL=gpt-5.5
 
 # App host server/.env
 CODEX_WORKER_URL=http://127.0.0.1:9876
 CODEX_WORKER_TOKEN=generate-a-long-random-secret
 ```
-
 On the app host, restart the BFF after editing env:
 
 ```bash
@@ -85,6 +86,7 @@ Optional worker env:
 | `CODEX_WORKER_TOKEN` | (required) | Bearer token |
 | `CODEX_WORKER_PORT` | `9876` | Listen port |
 | `CODEX_WORKER_HOST` | `127.0.0.1` | Bind address (keep localhost) |
+| `CODEX_MODEL` | (unset) | If set, passed as `codex exec -m <MODEL>`. If unset, uses the Codex CLI default from your local config |
 
 ---
 

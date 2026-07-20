@@ -51,28 +51,28 @@ export async function runCodexImprove(
     `codex-improve-${Date.now()}-${Math.random().toString(36).slice(2)}.json`,
   )
 
+  const model = (process.env.CODEX_MODEL ?? '').trim()
+  const args = [
+    'exec',
+    '--ephemeral',
+    '--sandbox',
+    'read-only',
+    ...(model ? (['-m', model] as const) : []),
+    '--output-schema',
+    schemaPath,
+    '-o',
+    outFile,
+    '-',
+  ]
+
   try {
     await new Promise<void>((resolve, reject) => {
       // Pass prompt via stdin (`-`) so Codex does not hang waiting for
       // "additional input" on a non-TTY inherited/ignored stdin.
-      const child = spawn(
-        'codex',
-        [
-          'exec',
-          '--ephemeral',
-          '--sandbox',
-          'read-only',
-          '--output-schema',
-          schemaPath,
-          '-o',
-          outFile,
-          '-',
-        ],
-        {
-          stdio: ['pipe', 'pipe', 'pipe'],
-          env: process.env,
-        },
-      )
+      const child = spawn('codex', args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: process.env,
+      })
 
       let stderr = ''
       child.stderr?.on('data', (chunk: Buffer) => {
