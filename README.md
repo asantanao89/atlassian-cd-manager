@@ -162,70 +162,96 @@ En la UI, el estado de conexión muestra el usuario autenticado si todo es corre
 
 ## Codex worker (AI)
 
-La mejora con AI del formulario de **Historias** no ejecuta Codex en el servidor: el BFF llama a un worker HTTP que vive en el **laptop** (`tools/codex-worker`, `make pi`). Ese worker se publica en `127.0.0.1:9876` del host donde corre la app mediante un túnel SSH **reverse** (`-R`). Detalle: [`tools/codex-worker/README.md`](tools/codex-worker/README.md).
+La mejora con AI del formulario de **Historias** no ejecuta Codex en el servidor: el BFF llama a un worker HTTP en el **laptop** (`tools/codex-worker`), publicado en el host de la app con un túnel SSH **reverse** (`-R`).
 
-En el formulario verás el indicador **AI disponible / AI no disponible** (consulta `GET /api/ai/status` cada 15s). Si el worker o el túnel fallan, los botones **AI** se deshabilitan; el `?` del badge explica cómo comprobarlo.
+Guía completa (instalaciones, Make, LaunchAgents, aliases, manual vs automático, troubleshooting):  
+→ **[`tools/codex-worker/README.md`](tools/codex-worker/README.md)**
 
-### Arranque del worker (solo en el laptop)
+En el formulario: badge **AI disponible / AI no disponible** (`GET /api/ai/status` cada 15s). El `?` del badge resume cómo comprobarlo.
 
-No ejecutes `make pi` en la VM/servidor: Codex y el worker van en el portátil.
+### Arquitectura habitual
+
+```
+Laptop (make pi / LaunchAgent)  --ssh -R :9876-->  App host (BFF en 127.0.0.1:9876)
+```
+
+No ejecutes `make pi` en la VM. No hace falta `ssh -L` si el BFF corre en el mismo host destino del `-R`.
+
+### Elige cómo configurarlo
+
+| Enfoque | Worker | Túnel | Cuándo |
+|---|---|---|---|
+| **A — Manual** | `make pi` en una terminal | `ssh -N -R …` (o `autossh`) en otra | Pruebas rápidas |
+| **B — Automático** | `make pi-install` (LaunchAgent) | LaunchAgent + `autossh` + aliases `pi-atlassian-tunnel-*` | Uso diario / al login |
+
+### Instalaciones (laptop)
 
 ```bash
 npm --prefix tools/codex-worker install
-make pi
-curl -s http://127.0.0.1:9876/health
+brew install autossh          # solo si usas túnel automático o autossh
+mkdir -p ~/Library/Logs/atlassian-cd-manager
 ```
 
-Requisitos en el laptop: `CODEX_WORKER_TOKEN` en `server/.env`, Codex CLI instalado y autenticado (`codex login`).
-
-### Arranque al login (macOS LaunchAgent)
-
-```bash
-make pi-install
-```
-
-| Comando | Descripción |
-|---|---|
-| `make pi-install` | Instala y arranca el LaunchAgent |
-| `make pi-uninstall` | Lo elimina |
-| `make pi-start` / `make pi-stop` | Arranca / detiene |
-| `make pi-status` | Estado + health local |
-| `make pi-health` | `curl` a `http://127.0.0.1:9876/health` (worker/túnel) |
-| `make pi-logs` | Logs en `~/Library/Logs/atlassian-cd-manager/` |
-
-### Túnel SSH (laptop → host de la app)
-
-Con el worker escuchando en el laptop, expón el puerto en el **mismo host donde corre el BFF**:
-
-```bash
-ssh -N -R 127.0.0.1:9876:127.0.0.1:9876 user@APP_HOST
-```
-
-Ejemplo:
-
-```bash
-ssh -N -R 127.0.0.1:9876:127.0.0.1:9876 itp@develop-5.intechpartner.com
-```
-
-Con eso, en el servidor `http://127.0.0.1:9876` apunta al worker del laptop. **No hace falta un segundo túnel desde la VM** (`ssh -L`): el BFF ya ve el worker en localhost.
-
-> Solo necesitarías un forward local adicional si el BFF viviera en una máquina distinta del destino del `-R` (p. ej. Raspberry Pi como puente entre laptop y otra VM). En el setup habitual (app en el host al que haces el `-R`) ese paso no aplica.
-
-### Env en el servidor (BFF)
+Mismo `CODEX_WORKER_TOKEN` en el `server/.env` del **laptop** y del **servidor**. En el servidor también:
 
 ```env
 CODEX_WORKER_URL=http://127.0.0.1:9876
 CODEX_WORKER_TOKEN=generate-a-long-random-secret
 ```
 
-El token debe coincidir con el del laptop (`server/.env` local, leído por `make pi` / LaunchAgent). Reinicia el servicio tras cambiar el `.env`.
+```bash
+sudo systemctl restart atlassian-cd-manager
+```
 
-Verificación en el servidor:
+### Opción A — Manual (resumen)
 
 ```bash
+# Terminal 1 — worker
+make pi
+make pi-health
+
+# Terminal 2 — túnel (sustituye user@APP_HOST)
+ssh -N -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes \
+  -R 127.0.0.1:9876:127.0.0.1:9876 user@APP_HOST
+```
+
+### Opción B — Automático (resumen)
+
+**Worker** (Make genera el LaunchAgent desde el template del repo):
+
+```bash
+make pi-install
+make pi-status    # / pi-stop / pi-start / pi-uninstall / pi-logs / pi-health
+```
+
+Ficheros: `~/Library/LaunchAgents/com.atlassian-cd-manager.codex-worker.plist`  
+Logs: `~/Library/Logs/atlassian-cd-manager/codex-worker.{out,err}.log`
+
+**Túnel** (crear a mano el plist `com.atlassian-cd-manager.codex-tunnel` — plantilla y pasos en el [README del worker](tools/codex-worker/README.md); usa rutas reales de usuario, no placeholders):
+
+```bash
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.atlassian-cd-manager.codex-tunnel.plist
+launchctl kickstart -k gui/$(id -u)/com.atlassian-cd-manager.codex-tunnel
+```
+
+**Aliases** recomendados en `~/.zshrc` (detalle en el README del worker):
+
+```bash
+alias pi-atlassian-tunnel-start='…'   # bootstrap + kickstart
+alias pi-atlassian-tunnel-stop='…'    # bootout
+alias pi-atlassian-tunnel-status='…'  # print + health
+alias pi-atlassian-tunnel-logs='…'    # tail logs
+```
+
+### Verificación
+
+```bash
+# Laptop
+make pi-health
+
+# App host
 curl -s http://127.0.0.1:9876/health
-curl -s http://localhost:3000/api/ai/status
-# → "available": true
+curl -s http://localhost:3000/api/ai/status   # "available": true
 ```
 
 ---
@@ -263,7 +289,7 @@ Desde Tracking puedes saltar a estos flujos con contexto (issue / repo).
 |---|---|
 | `make dev` | Cliente + servidor (`nvm use` + `npm run dev`) |
 | `make pi` | Codex worker en foreground |
-| `make pi-install` / `pi-uninstall` / `pi-start` / `pi-stop` / `pi-status` / `pi-health` / `pi-logs` | LaunchAgent del worker (macOS) + health |
+| `make pi-install` / `pi-uninstall` / `pi-start` / `pi-stop` / `pi-status` / `pi-health` / `pi-logs` | Worker Codex (LaunchAgent macOS + health). Túnel: ver `tools/codex-worker/README.md` + aliases `pi-atlassian-tunnel-*` |
 | `npm run dev` | Cliente + servidor en paralelo |
 | `npm run build` | Compila cliente y servidor |
 | `npm run test` | Tests |
@@ -460,9 +486,12 @@ Faltan variables Bitbucket o el token no autentica. Con tokens `ATATT...`, usa e
 
 ### AI no disponible en Historias
 
-1. En el **laptop** (no en la VM): `make pi-status` (o `make pi` / `make pi-install`).
-2. Health en el laptop: `curl -s http://127.0.0.1:9876/health`.
-3. Túnel reverse activo hacia el host de la app: `ssh -N -R 127.0.0.1:9876:127.0.0.1:9876 user@APP_HOST`.
-4. En el servidor, `CODEX_WORKER_URL` y `CODEX_WORKER_TOKEN` alineados con el worker; reinicia el BFF tras cambiar el `.env`.
-5. En el servidor: `curl -s http://127.0.0.1:9876/health` y `curl -s http://localhost:3000/api/ai/status` → `"available": true`.
-6. No hace falta un `ssh -L` en la VM si el BFF corre en el mismo host destino del `-R`.
+Sigue la checklist completa en [`tools/codex-worker/README.md`](tools/codex-worker/README.md) (sección Troubleshooting). Resumen:
+
+1. Laptop: `make pi-status` / `make pi-health` (no ejecutes el worker en la VM).
+2. Túnel reverse activo (`ssh -R` o `pi-atlassian-tunnel-status`).
+3. Si el remoto dice *port forwarding failed for listen port 9876*: liberar el `sshd` colgado en el host (`lsof` / `kill`).
+4. Servidor: `CODEX_WORKER_URL` + `CODEX_WORKER_TOKEN` (mismo token) y reinicio del BFF.
+5. En el host: `curl -s http://127.0.0.1:9876/health` y `curl -s http://localhost:3000/api/ai/status` → `"available": true`.
+6. LaunchAgent del túnel con `EX_CONFIG` (78): revisa rutas de log del plist (sin placeholders).
+7. No hace falta `ssh -L` si el BFF está en el destino del `-R`.
