@@ -135,31 +135,32 @@ const aiStatusTitle = computed(() => {
   if (aiStatus.value.reason === 'unhealthy') {
     return 'El worker respondió, pero no está sano.'
   }
-  return 'Worker o túnel SSH no alcanzable. Arranca make pi (o el LaunchAgent) y los túneles.'
+  return 'Worker o túnel SSH no alcanzable. Arranca make pi y el ssh -R al host de la app.'
 })
 const aiHelpTooltip = computed(() => {
   if (!aiStatus.value?.configured) {
     return [
       'AI no configurada en el BFF.',
       '',
-      '1. En la VM, añade a server/.env:',
+      '1. En el servidor, añade a server/.env:',
       '   CODEX_WORKER_URL=http://127.0.0.1:9876',
       '   CODEX_WORKER_TOKEN=<mismo token que el laptop>',
       '2. Reinicia el servicio del BFF.',
       '3. En el laptop: make pi (o make pi-install).',
-      '4. Comprueba: make pi-status y los túneles SSH (ver README).',
+      '4. Túnel: ssh -N -R 127.0.0.1:9876:127.0.0.1:9876 user@APP_HOST',
     ].join('\n')
   }
   return [
-    'El Codex worker no responde (servicio o túneles).',
+    'El Codex worker no responde (servicio o túnel).',
     '',
     'En el laptop:',
     '• make pi  (o make pi-install / make pi-start)',
     '• make pi-status',
     '• curl http://127.0.0.1:9876/health',
+    '• ssh -N -R 127.0.0.1:9876:127.0.0.1:9876 user@APP_HOST',
     '',
-    'También comprueba los túneles SSH laptop→Pi y VM→Pi.',
-    'Docs: README.md → Codex worker / tools/codex-worker/README.md',
+    'No hace falta ssh -L en la VM si el BFF está en APP_HOST.',
+    'Docs: README.md → Codex worker',
   ].join('\n')
 })
 

@@ -68,7 +68,7 @@ Desde las tablas de issues: elegir canal, revisar el mensaje (enlace Jira + PRs 
 - Cuenta Atlassian con acceso a Jira Cloud
 - API token de Atlassian ([generar aquí](https://id.atlassian.com/manage-profile/security/api-tokens))
 - Para Branch / PR: acceso a Bitbucket Cloud y token/app password
-- Para AI en Historias: Codex CLI en el **laptop** + túneles SSH (ver más abajo)
+- Para AI en Historias: Codex CLI en el **laptop** + túnel SSH reverse al host del BFF (ver más abajo)
 
 ---
 
@@ -162,18 +162,21 @@ En la UI, el estado de conexión muestra el usuario autenticado si todo es corre
 
 ## Codex worker (AI)
 
-La mejora con AI del formulario de **Historias** no ejecuta Codex en la VM: el BFF llama a un worker HTTP en el **laptop** (`tools/codex-worker`), expuesto vía túneles SSH (Raspberry Pi como puente). Detalle: [`tools/codex-worker/README.md`](tools/codex-worker/README.md).
+La mejora con AI del formulario de **Historias** no ejecuta Codex en el servidor: el BFF llama a un worker HTTP que vive en el **laptop** (`tools/codex-worker`, `make pi`). Ese worker se publica en `127.0.0.1:9876` del host donde corre la app mediante un túnel SSH **reverse** (`-R`). Detalle: [`tools/codex-worker/README.md`](tools/codex-worker/README.md).
 
-En el formulario verás el indicador **AI disponible / AI no disponible** (consulta `GET /api/ai/status` cada 15s). Si el worker o los túneles fallan, los botones **AI** se deshabilitan; el `?` del badge explica cómo comprobarlo.
+En el formulario verás el indicador **AI disponible / AI no disponible** (consulta `GET /api/ai/status` cada 15s). Si el worker o el túnel fallan, los botones **AI** se deshabilitan; el `?` del badge explica cómo comprobarlo.
 
-### Arranque manual
+### Arranque del worker (solo en el laptop)
+
+No ejecutes `make pi` en la VM/servidor: Codex y el worker van en el portátil.
 
 ```bash
+npm --prefix tools/codex-worker install
 make pi
 curl -s http://127.0.0.1:9876/health
 ```
 
-Requisitos: `CODEX_WORKER_TOKEN` en `server/.env`, Codex CLI instalado y autenticado (`codex login`).
+Requisitos en el laptop: `CODEX_WORKER_TOKEN` en `server/.env`, Codex CLI instalado y autenticado (`codex login`).
 
 ### Arranque al login (macOS LaunchAgent)
 
@@ -187,16 +190,43 @@ make pi-install
 | `make pi-uninstall` | Lo elimina |
 | `make pi-start` / `make pi-stop` | Arranca / detiene |
 | `make pi-status` | Estado + health local |
+| `make pi-health` | `curl` a `http://127.0.0.1:9876/health` (worker/túnel) |
 | `make pi-logs` | Logs en `~/Library/Logs/atlassian-cd-manager/` |
 
-En la VM (BFF):
+### Túnel SSH (laptop → host de la app)
+
+Con el worker escuchando en el laptop, expón el puerto en el **mismo host donde corre el BFF**:
+
+```bash
+ssh -N -R 127.0.0.1:9876:127.0.0.1:9876 user@APP_HOST
+```
+
+Ejemplo:
+
+```bash
+ssh -N -R 127.0.0.1:9876:127.0.0.1:9876 itp@develop-5.intechpartner.com
+```
+
+Con eso, en el servidor `http://127.0.0.1:9876` apunta al worker del laptop. **No hace falta un segundo túnel desde la VM** (`ssh -L`): el BFF ya ve el worker en localhost.
+
+> Solo necesitarías un forward local adicional si el BFF viviera en una máquina distinta del destino del `-R` (p. ej. Raspberry Pi como puente entre laptop y otra VM). En el setup habitual (app en el host al que haces el `-R`) ese paso no aplica.
+
+### Env en el servidor (BFF)
 
 ```env
 CODEX_WORKER_URL=http://127.0.0.1:9876
 CODEX_WORKER_TOKEN=generate-a-long-random-secret
 ```
 
-El token debe coincidir con el del laptop. Los túneles SSH (laptop→Pi y VM→Pi) son necesarios además del worker.
+El token debe coincidir con el del laptop (`server/.env` local, leído por `make pi` / LaunchAgent). Reinicia el servicio tras cambiar el `.env`.
+
+Verificación en el servidor:
+
+```bash
+curl -s http://127.0.0.1:9876/health
+curl -s http://localhost:3000/api/ai/status
+# → "available": true
+```
 
 ---
 
@@ -233,7 +263,7 @@ Desde Tracking puedes saltar a estos flujos con contexto (issue / repo).
 |---|---|
 | `make dev` | Cliente + servidor (`nvm use` + `npm run dev`) |
 | `make pi` | Codex worker en foreground |
-| `make pi-install` / `pi-uninstall` / `pi-start` / `pi-stop` / `pi-status` / `pi-logs` | LaunchAgent del worker (macOS) |
+| `make pi-install` / `pi-uninstall` / `pi-start` / `pi-stop` / `pi-status` / `pi-health` / `pi-logs` | LaunchAgent del worker (macOS) + health |
 | `npm run dev` | Cliente + servidor en paralelo |
 | `npm run build` | Compila cliente y servidor |
 | `npm run test` | Tests |
@@ -372,7 +402,7 @@ npm run build
 sudo systemctl restart atlassian-cd-manager
 ```
 
-Si usas AI desde la VM: mantén túneles SSH activos y el worker en el laptop (`make pi` / `make pi-install`).
+Si usas AI desde el servidor: mantén el worker en el laptop (`make pi` / `make pi-install`) y el túnel reverse (`ssh -R …:9876`) hacia ese host.
 
 ---
 
@@ -384,7 +414,7 @@ Si usas AI desde la VM: mantén túneles SSH activos y el worker en el laptop (`
 4. **No multiusuario.** Un único token/identidad en el servidor.
 5. **Historias solo CDPM.** Campos y components fijados en código; no es un creador genérico de Jira.
 6. **Vacaciones locales.** Las ausencias del Tracking se guardan en el navegador, no en Jira.
-7. **AI opcional.** Sin worker + túneles, el formulario de Historias funciona pero sin botones AI.
+7. **AI opcional.** Sin worker en el laptop + túnel reverse al host del BFF, el formulario de Historias funciona pero sin botones AI.
 
 ---
 
@@ -430,8 +460,9 @@ Faltan variables Bitbucket o el token no autentica. Con tokens `ATATT...`, usa e
 
 ### AI no disponible en Historias
 
-1. Laptop: `make pi-status` (o `make pi` / `make pi-install`).
-2. Health: `curl -s http://127.0.0.1:9876/health`.
-3. Túneles SSH laptop→Pi y VM→Pi ([docs del worker](tools/codex-worker/README.md)).
-4. En la VM, `CODEX_WORKER_URL` y `CODEX_WORKER_TOKEN` alineados con el worker.
-5. `curl -s http://localhost:3000/api/ai/status` → `"available": true`.
+1. En el **laptop** (no en la VM): `make pi-status` (o `make pi` / `make pi-install`).
+2. Health en el laptop: `curl -s http://127.0.0.1:9876/health`.
+3. Túnel reverse activo hacia el host de la app: `ssh -N -R 127.0.0.1:9876:127.0.0.1:9876 user@APP_HOST`.
+4. En el servidor, `CODEX_WORKER_URL` y `CODEX_WORKER_TOKEN` alineados con el worker; reinicia el BFF tras cambiar el `.env`.
+5. En el servidor: `curl -s http://127.0.0.1:9876/health` y `curl -s http://localhost:3000/api/ai/status` → `"available": true`.
+6. No hace falta un `ssh -L` en la VM si el BFF corre en el mismo host destino del `-R`.
