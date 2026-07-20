@@ -1,48 +1,91 @@
 # Atlassian CD Manager
 
-SPA + BFF para gestionar el time tracking (worklogs) de issues de Jira Cloud desde una interfaz local.
+SPA + BFF para gestionar time tracking, historias CDPM, ramas y pull requests de Bitbucket desde una interfaz local o desplegada.
+
+**Arquitectura:** Vue 3 (cliente) + Fastify (BFF). Los tokens de Jira/Bitbucket **nunca** llegan al navegador.
+
+Navegación principal: **Tracking** · **Historias** · **Branch** · **Pull Request**.
 
 ---
 
-## Descripción
+## Funcionalidades
 
-Aplicación local que permite:
+### Tracking (`/timer`)
 
-- Visualizar original estimate, remaining estimate, time spent y worklogs
-- Crear, modificar y borrar worklogs
-- Preparar cambios en cola antes de enviarlos a Jira (bulk actions)
-- Ejecutar cambios en bloque con feedback individual por cambio
-- Ver resumen de horas del usuario (día/semana/mes)
-- Ver issues asignadas al usuario con su estado de time tracking
+Gestión de worklogs y seguimiento de horas del usuario autenticado.
 
-**Arquitectura:** SPA Vue 3 (cliente) + servidor Fastify mínimo (BFF). El API token **nunca** llega al navegador.
+| Subvista | Ruta | Qué hace |
+|---|---|---|
+| Resumen | `/timer/resumen` | Cards día/semana/mes vs objetivo, gráfico diario, vacaciones/ausencias, issues abiertas y de sprint |
+| Worklogs pendientes | `/timer/pendientes` | Cola de borradores (crear/editar/borrar) y ejecución en bloque |
+| Histórico | `/timer/historico` | Gráficos mensuales de horas (últimos 6 meses, solo lectura) |
+
+En las tablas de issues puedes:
+
+- Ver/crear/editar worklogs (inmediato o en cola)
+- Cambiar estado del issue
+- Abrir en Jira, copiar clave
+- Crear rama / pull request (Bitbucket)
+- Notificar a Discord (si está configurado)
+- Ver PRs abiertos del parent
+
+### Historias (`/stories`)
+
+Crear, editar o clonar issues del proyecto **CDPM** (configuración fija en el servidor).
+
+- Modos: crear nueva · editar por clave · clonar (selector de campos)
+- Campos: work type, summary, description, parent (épica), components, Pilares, Valor, story points, criterios de aceptación
+- Vista previa Markdown antes de guardar
+- Mejora con AI (Codex) de summary, description y criterios de aceptación (opcional; ver [Codex worker](#codex-worker-ai))
+
+### Branch (`/branch`)
+
+Crear una rama en Bitbucket a partir de una clave/URL de issue:
+
+1. Indicar issue y tipo (`feature` / `bugfix` / `hotfix` / `chore` / `release`)
+2. Elegir repositorio y punto de partida
+3. Crear y copiar el comando `git fetch && checkout`
+
+### Pull Request (`/pull-request`)
+
+Crear un PR en Bitbucket:
+
+1. Elegir repo, rama origen y target
+2. Título (auto desde la rama origen) y descripción (auto desde commits)
+3. Crear y abrir el PR en una pestaña nueva
+
+También se puede abrir pre-rellenado desde las tablas de issues (`?repo=` / `?source=`).
+
+### Discord (opcional)
+
+Desde las tablas de issues: elegir canal, revisar el mensaje (enlace Jira + PRs abiertos) y enviar. Los webhooks viven solo en el servidor.
 
 ---
 
 ## Requisitos
 
-- Node.js 22 LTS o superior
-- Una cuenta de Atlassian con acceso a Jira Cloud
-- Un API token de Atlassian ([generar aquí](https://id.atlassian.com/manage-profile/security/api-tokens))
+- Node.js 22 LTS o superior (recomendado: nvm + `.nvmrc` del repo)
+- Cuenta Atlassian con acceso a Jira Cloud
+- API token de Atlassian ([generar aquí](https://id.atlassian.com/manage-profile/security/api-tokens))
+- Para Branch / PR: acceso a Bitbucket Cloud y token/app password
+- Para AI en Historias: Codex CLI en el **laptop** + túneles SSH (ver más abajo)
 
 ---
 
 ## Instalación
 
 ```bash
-# Instalar dependencias raíz
 npm install
-
-# Instalar dependencias de cliente y servidor
 npm --prefix client install
 npm --prefix server install
+
+# Solo si vas a usar AI en Historias
+npm --prefix tools/codex-worker install
 ```
 
 ---
 
 ## Configuración
-
-Copia `.env.example` a `server/.env` y rellena los valores:
 
 ```bash
 cp .env.example server/.env
@@ -51,154 +94,136 @@ cp .env.example server/.env
 Edita `server/.env`:
 
 ```env
+# --- Jira (obligatorio) ---
 JIRA_BASE_URL=https://your-domain.atlassian.net
 JIRA_EMAIL=your-email@example.com
 JIRA_API_TOKEN=your-api-token
+
+# --- Bitbucket (Branch / Pull Request) ---
 BITBUCKET_BASE_URL=https://api.bitbucket.org/2.0
 BITBUCKET_WORKSPACE=your-workspace
+# Uno o varios repos separados por coma
 BITBUCKET_REPO_SLUG=your-repository-slug
-BITBUCKET_API_USER=your-bitbucket-username-or-email
-BITBUCKET_API_TOKEN=your-bitbucket-app-password
+# Con tokens ATATT... usa el email de la cuenta Atlassian
+BITBUCKET_API_USER=your-atlassian-account-email
+BITBUCKET_API_TOKEN=your-bitbucket-api-token-or-app-password
+# Alias legacy aún soportados:
+# BITBUCKET_USERNAME=...
+# BITBUCKET_APP_PASSWORD=...
+
+# --- Servidor ---
 SERVER_PORT=3000
 CLIENT_ORIGIN=http://localhost:5173
+
+# --- Codex worker / AI (opcional) ---
+# CODEX_WORKER_URL=http://127.0.0.1:9876
+# CODEX_WORKER_TOKEN=generate-a-long-random-secret
+
+# --- Discord (opcional, JSON en una sola línea) ---
+# DISCORD_CHANNELS=[{"id":"dev","name":"#desarrollo","webhookUrl":"https://discord.com/api/webhooks/..."}]
 ```
 
-> ⚠️ **Nunca commitees el archivo `.env` real.** Ya está en `.gitignore`.
+> ⚠️ **Nunca commitees el `.env` real.** Ya está en `.gitignore`.
 
-### Pull Request (Bitbucket)
+### Discord
 
-Para habilitar la vista **Pull Request** se requieren credenciales de Bitbucket Cloud con permisos de lectura/escritura sobre el repositorio:
+`DISCORD_CHANNELS` es un array JSON de `{ id, name, webhookUrl }`. El `webhookUrl` no se expone al navegador.
 
-- `BITBUCKET_WORKSPACE`
-- `BITBUCKET_REPO_SLUG`
-- `BITBUCKET_API_USER`
-- `BITBUCKET_API_TOKEN`
+Crear webhook: **Server Settings → Integrations → Webhooks → New Webhook**.
 
-> También se aceptan los nombres antiguos `BITBUCKET_USERNAME` y `BITBUCKET_APP_PASSWORD` por compatibilidad.
+### Bitbucket
 
-Flujo implementado en la vista:
-
-1. Cargar ramas disponibles del repositorio configurado.
-2. Seleccionar rama origen y rama target.
-3. Crear pull request.
-4. Mostrar resumen del PR creado con enlace para abrirlo en una nueva pestaña.
-
-### Notificaciones Discord (opcional)
-
-Para habilitar el botón **Notificar a Discord** en las tablas de issues, define `DISCORD_CHANNELS` en `server/.env` como un array JSON en una sola línea:
-
-```env
-DISCORD_CHANNELS=[{"id":"dev","name":"#desarrollo","webhookUrl":"https://discord.com/api/webhooks/..."},{"id":"qa","name":"#qa","webhookUrl":"https://discord.com/api/webhooks/..."}]
-```
-
-Cada entrada necesita:
-
-- `id`: identificador interno (único)
-- `name`: nombre mostrado en el selector del popup
-- `webhookUrl`: URL del webhook de Discord (nunca se expone al navegador)
-
-Para crear un webhook en Discord: **Server Settings → Integrations → Webhooks → New Webhook**. Asigna el webhook al canal deseado y copia la URL.
-
-Flujo en la app:
-
-1. Pulsar el botón de Discord en una fila de issue.
-2. Seleccionar canal y revisar/editar el mensaje pre-rellenado (enlace Jira + PRs abiertos).
-3. Enviar; el servidor reenvía el mensaje al webhook configurado.
+Necesario para **Branch** y **Pull Request**. Con API tokens Atlassian (`ATATT...`), `BITBUCKET_API_USER` debe ser el **email** de la cuenta.
 
 ---
 
 ## Arrancar en local
 
 ```bash
-# Opción recomendada (selecciona Node con nvm)
+# Recomendado (nvm use + npm run dev)
 make dev
 
 # Equivalente
 npm run dev
 ```
 
-Esto levanta simultáneamente:
-- **Servidor**: `http://localhost:3000`
-- **Cliente**: `http://localhost:5173`
+- **Servidor:** `http://localhost:3000`
+- **Cliente:** `http://localhost:5173`
 
-### Codex worker (AI en el formulario de historias)
+Comprobar Jira:
 
-La mejora con AI del formulario **Crear / Editar historia** no ejecuta Codex en la VM: el BFF llama a un worker HTTP en el **laptop** (`tools/codex-worker`), expuesto a la VM a través de túneles SSH vía Raspberry Pi. Detalle de túneles: [`tools/codex-worker/README.md`](tools/codex-worker/README.md).
+```bash
+curl http://localhost:3000/api/jira/me
+```
 
-En el frontal verás un indicador **AI disponible / AI no disponible** junto al título del formulario. Se refresca cada 15s consultando `GET /api/ai/status`. Si el worker o los túneles están caídos, los botones **AI** quedan deshabilitados.
+En la UI, el estado de conexión muestra el usuario autenticado si todo es correcto.
 
-#### Arranque manual (foreground)
+---
 
-Requisitos: `CODEX_WORKER_TOKEN` (y opcionalmente URL/puerto) en `server/.env`, Codex CLI instalado y autenticado, dependencias del worker (`npm --prefix tools/codex-worker install`).
+## Codex worker (AI)
+
+La mejora con AI del formulario de **Historias** no ejecuta Codex en la VM: el BFF llama a un worker HTTP en el **laptop** (`tools/codex-worker`), expuesto vía túneles SSH (Raspberry Pi como puente). Detalle: [`tools/codex-worker/README.md`](tools/codex-worker/README.md).
+
+En el formulario verás el indicador **AI disponible / AI no disponible** (consulta `GET /api/ai/status` cada 15s). Si el worker o los túneles fallan, los botones **AI** se deshabilitan; el `?` del badge explica cómo comprobarlo.
+
+### Arranque manual
 
 ```bash
 make pi
-```
-
-Health local:
-
-```bash
 curl -s http://127.0.0.1:9876/health
 ```
 
-#### Arranque automático al iniciar sesión (macOS LaunchAgent)
+Requisitos: `CODEX_WORKER_TOKEN` en `server/.env`, Codex CLI instalado y autenticado (`codex login`).
 
-Instala un LaunchAgent que arranca el worker al login y lo reinicia si cae:
+### Arranque al login (macOS LaunchAgent)
 
 ```bash
 make pi-install
 ```
 
-Gestión:
-
 | Comando | Descripción |
 |---|---|
 | `make pi-install` | Instala y arranca el LaunchAgent |
 | `make pi-uninstall` | Lo elimina |
-| `make pi-start` | Arranca / reinicia el servicio |
-| `make pi-stop` | Lo detiene |
-| `make pi-status` | Estado del LaunchAgent + health local |
-| `make pi-logs` | Sigue los logs (`~/Library/Logs/atlassian-cd-manager/`) |
+| `make pi-start` / `make pi-stop` | Arranca / detiene |
+| `make pi-status` | Estado + health local |
+| `make pi-logs` | Logs en `~/Library/Logs/atlassian-cd-manager/` |
 
-En la VM (donde corre el BFF) configura:
+En la VM (BFF):
 
 ```env
 CODEX_WORKER_URL=http://127.0.0.1:9876
 CODEX_WORKER_TOKEN=generate-a-long-random-secret
 ```
 
-El token debe coincidir con el del laptop (`server/.env` local, leído por `make pi` / LaunchAgent). Los túneles SSH (laptop→Pi y VM→Pi) siguen siendo necesarios además del worker.
+El token debe coincidir con el del laptop. Los túneles SSH (laptop→Pi y VM→Pi) son necesarios además del worker.
 
 ---
 
-## Probar la conexión con Jira
+## Detalle por área
 
-Una vez arrancado, abre `http://localhost:5173`. En la parte superior verás el estado de conexión con Jira. Si aparece el nombre del usuario conectado, todo está correcto.
+### Tracking — vacaciones y ausencias
 
-También puedes probar el endpoint directamente:
+- Días seleccionables: laborables del mes actual
+- También laborables fuera del mes si la semana intersecta el mes actual
+- No usa lógica de sprint; se guardan en el navegador (`localStorage`)
 
-```bash
-curl http://localhost:3000/api/jira/me
-```
+Regla formal: `.github/instructions/vacation-week-overlap.instructions.md`
 
----
+### Historias — alcance CDPM
 
-## Vista de seguimiento personal
+La creación/edición está fijada al proyecto **CDPM** y a campos/components concretos (`server/src/jira/storyCreateConfig.ts`). No es un creador genérico de issues de cualquier proyecto.
 
-En la pestaña **Mi seguimiento** se muestra:
+Work types permitidos: Error, Historia, Tarea, Épica.
 
-- Resumen de horas del usuario actual por **día**, **semana** y **mes**.
-- Lista de worklogs recientes del usuario.
-- Lista de issues asignadas con columnas de time tracking (original, restante, dedicado).
+### Branch / Pull Request
 
-### Convención de vacaciones y ausencias
+Flujos típicos:
 
-- Los días seleccionables incluyen todos los días laborables del mes actual.
-- También se permiten días laborables fuera del mes cuando pertenecen a una semana que intersecta el mes actual.
-- No se usa lógica de sprint para vacaciones/ausencias ni para estos límites.
+1. **Branch:** issue → tipo de rama → repo → crear → checkout.
+2. **PR:** repo → origen/target → título/descripción → crear → enlace.
 
-Regla formal del proyecto:
-- `.github/instructions/vacation-week-overlap.instructions.md`
+Desde Tracking puedes saltar a estos flujos con contexto (issue / repo).
 
 ---
 
@@ -206,22 +231,22 @@ Regla formal del proyecto:
 
 | Comando | Descripción |
 |---|---|
-| `make dev` | Levanta cliente y servidor (`nvm use` + `npm run dev`) |
-| `make pi` | Levanta el Codex worker en foreground |
-| `make pi-install` / `pi-uninstall` / `pi-start` / `pi-stop` / `pi-status` / `pi-logs` | Gestiona el LaunchAgent del worker en macOS |
-| `npm run dev` | Levanta cliente y servidor en paralelo |
+| `make dev` | Cliente + servidor (`nvm use` + `npm run dev`) |
+| `make pi` | Codex worker en foreground |
+| `make pi-install` / `pi-uninstall` / `pi-start` / `pi-stop` / `pi-status` / `pi-logs` | LaunchAgent del worker (macOS) |
+| `npm run dev` | Cliente + servidor en paralelo |
 | `npm run build` | Compila cliente y servidor |
-| `npm run test` | Ejecuta tests de cliente y servidor |
-| `npm run typecheck` | Verifica tipos TypeScript |
-| `npm run lint` | Ejecuta ESLint |
+| `npm run test` | Tests |
+| `npm run typecheck` | TypeScript |
+| `npm run lint` | ESLint |
 
 ---
 
 ## Despliegue en servidor de desarrollo
 
-Pasos para servir la aplicación en un servidor Linux con nginx y systemd.
+Pasos para Linux con nginx + systemd.
 
-### 1. Clonar y construir
+### 1. Clonar e instalar
 
 ```bash
 git clone <repo> /var/www/atlassian-cd-manager
@@ -231,31 +256,21 @@ npm --prefix client install
 npm --prefix server install
 ```
 
-### 2. Configurar variables de entorno del servidor
+### 2. Entorno del servidor
 
 ```bash
 cp .env.example /var/www/atlassian-cd-manager/server/.env
 ```
 
-Edita `server/.env` con los valores reales y ajusta `CLIENT_ORIGIN` al dominio con HTTPS:
+Ajusta valores reales y `CLIENT_ORIGIN` al dominio HTTPS. Incluye Bitbucket / Discord / Codex si los usas.
 
-```env
-JIRA_BASE_URL=https://your-domain.atlassian.net
-JIRA_EMAIL=your-email@example.com
-JIRA_API_TOKEN=your-api-token
-SERVER_PORT=3000
-CLIENT_ORIGIN=https://atlassian-cd-manager.example.com
-```
-
-### 3. Configurar variable de entorno del cliente
-
-Crea `client/.env.production` para que el build use rutas relativas y nginx enrute las llamadas `/api/` al servidor Fastify:
+### 3. Entorno del cliente (build)
 
 ```bash
 echo "VITE_API_BASE_URL=" > /var/www/atlassian-cd-manager/client/.env.production
 ```
 
-> Sin este archivo, el cliente usará el fallback `http://localhost:3000` hardcodeado en el bundle, causando errores CORS.
+> Sin esto, el bundle usará `http://localhost:3000` y fallará por CORS detrás de nginx.
 
 ### 4. Compilar
 
@@ -264,11 +279,11 @@ cd /var/www/atlassian-cd-manager
 npm run build
 ```
 
-Los estáticos del cliente quedan en `client/dist/`.
+Estáticos en `client/dist/`.
 
-### 5. Configurar nginx
+### 5. nginx
 
-Crea `/etc/nginx/sites-available/atlassian-cd-manager`:
+`/etc/nginx/sites-available/atlassian-cd-manager`:
 
 ```nginx
 server {
@@ -287,12 +302,10 @@ server {
     root /var/www/atlassian-cd-manager/client/dist;
     index index.html;
 
-    # Frontend (Vue SPA)
     location / {
         try_files $uri $uri/ /index.html;
     }
 
-    # Backend (Fastify API)
     location /api/ {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
@@ -302,17 +315,15 @@ server {
 }
 ```
 
-Activa el sitio:
-
 ```bash
 sudo ln -s /etc/nginx/sites-available/atlassian-cd-manager /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### 6. Configurar el servicio systemd
+### 6. systemd
 
-Crea `/etc/systemd/system/atlassian-cd-manager.service`:
+`/etc/systemd/system/atlassian-cd-manager.service`:
 
 ```ini
 [Unit]
@@ -332,15 +343,11 @@ EnvironmentFile=/var/www/atlassian-cd-manager/server/.env
 WantedBy=multi-user.target
 ```
 
-> **Nota:** `ExecStart` debe apuntar a un binario de node accesible por `www-data`. Si usas nvm, el binario estará en `~/.nvm/versions/node/<version>/bin/node` y solo será accesible para tu usuario. Cópialo a una ruta del sistema:
+> `ExecStart` debe usar un `node` accesible por `www-data`. Con nvm:
 >
 > ```bash
 > sudo cp $(which node) /usr/local/bin/node
 > ```
->
-> Si en el futuro actualizas node con nvm, repite este paso.
-
-Activa e inicia el servicio:
 
 ```bash
 sudo systemctl daemon-reload
@@ -352,14 +359,11 @@ sudo systemctl status atlassian-cd-manager
 ### 7. Verificar
 
 ```bash
-# El servidor Fastify está corriendo
 curl http://localhost:3000/api/jira/me
-
-# El proxy de nginx funciona
 curl https://atlassian-cd-manager.example.com/api/jira/me
 ```
 
-### Actualizar tras cambios en el repo
+### Actualizar
 
 ```bash
 cd /var/www/atlassian-cd-manager
@@ -368,25 +372,29 @@ npm run build
 sudo systemctl restart atlassian-cd-manager
 ```
 
+Si usas AI desde la VM: mantén túneles SSH activos y el worker en el laptop (`make pi` / `make pi-install`).
+
 ---
 
 ## Limitaciones conocidas
 
-1. **`timeSpent` no es editable directamente.** En Jira, el tiempo dedicado se calcula sumando los worklogs. Para modificarlo, crea, edita o elimina worklogs.
-
-2. **Configuración de jornada laboral.** Esta aplicación asume: 1 semana = 5 días, 1 día = 8 horas. Si tu instancia de Jira tiene una configuración diferente, las conversiones de duraciones pueden no coincidir. Consulta _Jira Settings > Time tracking_.
-
-3. **Permisos del token.** El usuario asociado al API token solo puede leer y modificar issues para los que tenga permisos. Si un issue no aparece en los resultados o devuelve 403, el token no tiene acceso.
-
-4. **Aplicación no multiusuario.** Esta primera versión es una herramienta de uso personal/local con un único token configurado en el servidor.
+1. **`timeSpent` no es editable directamente.** Se calcula sumando worklogs; para cambiarlo, crea/edita/borra worklogs.
+2. **Jornada laboral fija.** Asume 1 semana = 5 días, 1 día = 8 horas. Si Jira usa otra configuración, las conversiones pueden diferir.
+3. **Permisos del token.** Solo se pueden tocar issues/repositorios a los que el usuario del token tenga acceso.
+4. **No multiusuario.** Un único token/identidad en el servidor.
+5. **Historias solo CDPM.** Campos y components fijados en código; no es un creador genérico de Jira.
+6. **Vacaciones locales.** Las ausencias del Tracking se guardan en el navegador, no en Jira.
+7. **AI opcional.** Sin worker + túneles, el formulario de Historias funciona pero sin botones AI.
 
 ---
 
 ## Advertencia de seguridad
 
-> El API token de Jira **nunca** se envía al navegador. Vive exclusivamente en el servidor como variable de entorno y se usa solo para construir la cabecera `Authorization: Basic ...` en las llamadas a Jira.
+> Los tokens de Jira/Bitbucket y los webhooks de Discord **nunca** se envían al navegador. Viven en el servidor.
 >
-> No commitees `.env` ni expongas el servidor a internet sin protección adicional.
+> No commitees `.env` ni expongas el servicio a internet sin protección adicional.
+>
+> El tráfico de Codex sale desde el **laptop** (worker), no desde la VM. Confirma que es aceptable para tu organización.
 
 ---
 
@@ -394,28 +402,36 @@ sudo systemctl restart atlassian-cd-manager
 
 ### Error 401 — Credenciales inválidas
 
-Verifica que `JIRA_EMAIL` y `JIRA_API_TOKEN` en `server/.env` sean correctos. El token se genera en [https://id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens).
+Revisa `JIRA_EMAIL` y `JIRA_API_TOKEN` en `server/.env`. Token: [id.atlassian.com](https://id.atlassian.com/manage-profile/security/api-tokens).
 
 ### Error 403 — Sin permisos
 
-El token tiene credenciales válidas pero el usuario no tiene permisos sobre el proyecto o issue. Comprueba los permisos en Jira.
+Credenciales válidas pero sin acceso al proyecto/issue/repo. Revisa permisos en Jira/Bitbucket.
 
 ### Error CORS
 
-Si el cliente no puede conectar con el servidor, asegúrate de que `CLIENT_ORIGIN` en `server/.env` coincide exactamente con la URL del cliente (ej: `http://localhost:5173`).
+`CLIENT_ORIGIN` debe coincidir exactamente con la URL del cliente (ej. `http://localhost:5173` o el dominio HTTPS).
 
 ### Formato de duración inválido
 
-Los valores de duración deben seguir el formato Jira: `30m`, `1h`, `1h 30m`, `2d`, `1w 2d 3h 30m`. No se admiten valores negativos ni formatos como `1:30` o `90`.
+Formato Jira: `30m`, `1h`, `1h 30m`, `2d`, `1w 2d 3h 30m`. No uses `1:30` ni `90`.
 
 ### El servidor no arranca
 
-Asegúrate de haber creado `server/.env` con todas las variables requeridas. El servidor falla rápido con un error claro si alguna variable falta o es inválida.
+Falta o es inválida alguna variable requerida en `server/.env`. El servidor falla rápido con un mensaje claro.
 
-### AI no disponible en Crear historia
+### Branch / PR devuelven 503
 
-1. En el laptop: `make pi-status` (o `make pi` / `make pi-install`).
-2. Comprueba health: `curl -s http://127.0.0.1:9876/health`.
-3. Verifica túneles SSH laptop→Pi y VM→Pi (ver `tools/codex-worker/README.md`).
-4. En la VM, `CODEX_WORKER_URL` y `CODEX_WORKER_TOKEN` deben coincidir con el worker.
-5. En el BFF: `curl -s http://localhost:3000/api/ai/status` debe devolver `"available": true`.
+Faltan variables Bitbucket o el token no autentica. Con tokens `ATATT...`, usa el email en `BITBUCKET_API_USER`.
+
+### Discord no aparece / 503
+
+`DISCORD_CHANNELS` ausente, mal formado (debe ser JSON en una línea) o webhook inválido.
+
+### AI no disponible en Historias
+
+1. Laptop: `make pi-status` (o `make pi` / `make pi-install`).
+2. Health: `curl -s http://127.0.0.1:9876/health`.
+3. Túneles SSH laptop→Pi y VM→Pi ([docs del worker](tools/codex-worker/README.md)).
+4. En la VM, `CODEX_WORKER_URL` y `CODEX_WORKER_TOKEN` alineados con el worker.
+5. `curl -s http://localhost:3000/api/ai/status` → `"available": true`.
