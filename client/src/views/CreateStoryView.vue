@@ -702,6 +702,18 @@ function afterSaveContinue(): void {
     cloneLookup.value = ''
   }
 }
+
+const saveSuccessTitle = computed(() => {
+  if (isEditMode.value) return 'Issue actualizado'
+  if (isCloneMode.value) return 'Clon creado'
+  return `${selectedIssueType.value?.name ?? 'Issue'} creado`
+})
+
+const saveContinueLabel = computed(() => {
+  if (isEditMode.value) return 'Seguir editando'
+  if (isCloneMode.value) return 'Clonar otra'
+  return 'Crear otra'
+})
 </script>
 
 <template>
@@ -1255,39 +1267,61 @@ function afterSaveContinue(): void {
         >
           {{ errorMessage }}
         </div>
+      </form>
 
+      <Teleport to="body">
         <div
           v-if="savedStory"
-          class="rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 space-y-2"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          @click.self="afterSaveContinue"
         >
-          <p>
-            {{
-              isEditMode
-                ? 'Issue actualizado'
-                : isCloneMode
-                  ? 'Clon creado'
-                  : `${selectedIssueType?.name ?? 'Issue'} creado`
-            }}:
-            <a
-              v-if="savedStory.url"
-              :href="savedStory.url"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="font-mono font-semibold text-green-900 underline"
-            >
-              {{ savedStory.key }}
-            </a>
-            <span v-else class="font-mono font-semibold">{{ savedStory.key }}</span>
-          </p>
-          <button
-            type="button"
-            class="text-sm text-green-800 underline hover:text-green-950"
-            @click="afterSaveContinue"
+          <div
+            class="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="story-save-success-title"
           >
-            {{ isEditMode ? 'Seguir editando' : isCloneMode ? 'Clonar otra' : 'Crear otra' }}
-          </button>
+            <div class="border-b border-green-100 bg-green-50 px-4 py-3">
+              <h2 id="story-save-success-title" class="text-sm font-semibold text-green-900">
+                {{ saveSuccessTitle }}
+              </h2>
+            </div>
+            <div class="px-4 py-4 space-y-4 text-sm text-gray-800">
+              <p>
+                Issue:
+                <a
+                  v-if="savedStory.url"
+                  :href="savedStory.url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="font-mono font-semibold text-green-800 underline hover:text-green-950"
+                >
+                  {{ savedStory.key }}
+                </a>
+                <span v-else class="font-mono font-semibold">{{ savedStory.key }}</span>
+              </p>
+              <div class="flex flex-wrap items-center justify-end gap-2">
+                <a
+                  v-if="savedStory.url"
+                  :href="savedStory.url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Abrir en Jira
+                </a>
+                <button
+                  type="button"
+                  class="rounded-md bg-green-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-800"
+                  @click="afterSaveContinue"
+                >
+                  {{ saveContinueLabel }}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-      </form>
+      </Teleport>
 
       <Teleport to="body">
         <div
