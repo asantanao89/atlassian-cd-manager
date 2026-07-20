@@ -15,6 +15,7 @@ import {
 } from '../schemas/jira.schemas'
 import { ALLOWED_ISSUE_TYPE_IDS, ALLOWED_PILARES_OPTION_IDS, STORY_CREATE_CONFIG } from '../jira/storyCreateConfig'
 import { parseJiraIssueKey } from '../jira/parseIssueKey'
+import { buildFieldBackupCommentMarkdown } from '../jira/buildFieldBackupComment'
 import { adfToMarkdown, buildAdfComment, markdownToAdf } from '../utils/adf'
 
 const ADJUST_ESTIMATE_VALUES = new Set(['auto', 'leave', 'new', 'manual'])
@@ -718,6 +719,15 @@ export async function jiraRoutes(fastify: FastifyInstance): Promise<void> {
       const validationError = validateStoryPayload(parsed.data)
       if (validationError) {
         return reply.status(400).send({ error: validationError })
+      }
+
+      const backupMarkdown = buildFieldBackupCommentMarkdown(parsed.data.fieldBackup)
+      if (backupMarkdown) {
+        const commentResult = await jira.post<unknown>(
+          `/rest/api/3/issue/${encodeURIComponent(parsedKey)}/comment`,
+          { body: markdownToAdf(backupMarkdown) },
+        )
+        if (!commentResult.ok) return sendJiraError(reply, commentResult.error)
       }
 
       const fields = buildStoryFields(parsed.data, { includeProject: false })

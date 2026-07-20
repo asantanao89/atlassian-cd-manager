@@ -147,7 +147,16 @@ export interface CreateStoryParams {
   acceptanceCriteria?: string | null
 }
 
-export type UpdateStoryParams = CreateStoryParams
+/** Snapshot values (at form load) for fields to back up as a Jira comment on update. */
+export interface StoryFieldBackup {
+  summary?: string
+  description?: string
+  acceptanceCriteria?: string
+}
+
+export interface UpdateStoryParams extends CreateStoryParams {
+  fieldBackup?: StoryFieldBackup
+}
 
 export interface StoryEditorIssue {
   id: string

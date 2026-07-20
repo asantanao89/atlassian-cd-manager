@@ -8,7 +8,7 @@ import { HttpError } from '../api/httpClient'
 import AiImprovePromptDialog from '../components/AiImprovePromptDialog.vue'
 import ParentEpicSelector from '../components/ParentEpicSelector.vue'
 import WorkTypeIcon from '../components/WorkTypeIcon.vue'
-import type { CreatedStory, StoryEditorIssue, StoryParentOption } from '../types/jira'
+import type { CreatedStory, StoryEditorIssue, StoryParentOption, StoryFieldBackup } from '../types/jira'
 import type { AiImprovePromptContext, ImproveFieldId } from '../utils/aiImprovePrompt'
 import { ACCEPTANCE_CRITERIA_TEMPLATE } from '../utils/aiImprovePrompt'
 import { parseJiraIssueKey } from '../utils/parseIssueKey'
@@ -77,6 +77,19 @@ const valor = ref('A definir')
 const storyPoints = ref('')
 const acceptanceCriteria = ref('')
 const workTypeMenuOpen = ref(false)
+
+type BackupFieldId = 'summary' | 'description' | 'acceptanceCriteria'
+
+function defaultBackupSelection(): Record<BackupFieldId, boolean> {
+  return {
+    summary: false,
+    description: false,
+    acceptanceCriteria: false,
+  }
+}
+
+const editBackupSnapshot = ref<StoryFieldBackup | null>(null)
+const backupInComment = ref<Record<BackupFieldId, boolean>>(defaultBackupSelection())
 
 const isSaving = ref(false)
 const errorMessage = ref<string | null>(null)
@@ -333,6 +346,8 @@ function clearFormFields(): void {
   workTypeMenuOpen.value = false
   errorMessage.value = null
   savedStory.value = null
+  editBackupSnapshot.value = null
+  backupInComment.value = defaultBackupSelection()
   if (options.value?.defaultIssueTypeId) {
     issueTypeId.value = options.value.defaultIssueTypeId
   } else {
@@ -498,6 +513,12 @@ async function loadIssue(intent: 'edit' | 'clone'): Promise<void> {
             statusColorName: '',
           }
         : null
+      editBackupSnapshot.value = {
+        summary: issue.summary,
+        description: issue.description,
+        acceptanceCriteria: issue.acceptanceCriteria,
+      }
+      backupInComment.value = defaultBackupSelection()
       editingKey.value = issue.key
       editingUrl.value = issue.url
       clonedFromKey.value = null
@@ -509,6 +530,8 @@ async function loadIssue(intent: 'edit' | 'clone'): Promise<void> {
       editingKey.value = null
       editingUrl.value = null
       clonedFromKey.value = issue.key
+      editBackupSnapshot.value = null
+      backupInComment.value = defaultBackupSelection()
       editorMode.value = 'clone-select'
     }
   } catch (err) {
@@ -602,6 +625,31 @@ function buildPayload() {
   }
 }
 
+function buildFieldBackup(): StoryFieldBackup | undefined {
+  const snapshot = editBackupSnapshot.value
+  if (!snapshot) return undefined
+
+  const backup: StoryFieldBackup = {}
+
+  if (backupInComment.value.summary) {
+    const original = (snapshot.summary ?? '').trim()
+    const current = summary.value.trim()
+    if (original && original !== current) backup.summary = original
+  }
+  if (backupInComment.value.description) {
+    const original = (snapshot.description ?? '').trim()
+    const current = description.value.trim()
+    if (original && original !== current) backup.description = original
+  }
+  if (backupInComment.value.acceptanceCriteria) {
+    const original = (snapshot.acceptanceCriteria ?? '').trim()
+    const current = acceptanceCriteria.value.trim()
+    if (original && original !== current) backup.acceptanceCriteria = original
+  }
+
+  return Object.keys(backup).length > 0 ? backup : undefined
+}
+
 async function handleSubmit(): Promise<void> {
   if (!canSubmit.value) return
 
@@ -612,7 +660,17 @@ async function handleSubmit(): Promise<void> {
   try {
     const payload = buildPayload()
     if (isEditMode.value && editingKey.value) {
-      savedStory.value = await jiraApi.updateStory(editingKey.value, payload)
+      const fieldBackup = buildFieldBackup()
+      savedStory.value = await jiraApi.updateStory(editingKey.value, {
+        ...payload,
+        ...(fieldBackup ? { fieldBackup } : {}),
+      })
+      editBackupSnapshot.value = {
+        summary: summary.value,
+        description: description.value,
+        acceptanceCriteria: acceptanceCriteria.value,
+      }
+      backupInComment.value = defaultBackupSelection()
     } else {
       savedStory.value = await jiraApi.createStory(payload)
     }
@@ -888,9 +946,22 @@ function afterSaveContinue(): void {
         </div>
         <div>
           <div class="flex items-center justify-between gap-2 mb-1">
-            <label class="block text-sm font-medium text-gray-700">
-              Summary <span class="text-red-500">*</span>
-            </label>
+            <div class="min-w-0">
+              <label class="block text-sm font-medium text-gray-700">
+                Summary <span class="text-red-500">*</span>
+              </label>
+              <label
+                v-if="isEditMode"
+                class="mt-1 inline-flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer"
+              >
+                <input
+                  v-model="backupInComment.summary"
+                  type="checkbox"
+                  class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                Backup en comentario
+              </label>
+            </div>
             <button
               type="button"
               class="shrink-0 rounded px-2 py-0.5 text-xs font-semibold tracking-wide bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -919,7 +990,20 @@ function afterSaveContinue(): void {
 
         <div>
           <div class="flex items-center justify-between gap-2 mb-1">
-            <label class="block text-sm font-medium text-gray-700">Description</label>
+            <div class="min-w-0">
+              <label class="block text-sm font-medium text-gray-700">Description</label>
+              <label
+                v-if="isEditMode"
+                class="mt-1 inline-flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer"
+              >
+                <input
+                  v-model="backupInComment.description"
+                  type="checkbox"
+                  class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                Backup en comentario
+              </label>
+            </div>
             <div class="flex items-center gap-1.5">
               <button
                 type="button"
@@ -957,9 +1041,22 @@ function afterSaveContinue(): void {
 
         <div>
           <div class="flex items-center justify-between gap-2 mb-1">
-            <label class="block text-sm font-medium text-gray-700">
-              Criterios de Aceptación
-            </label>
+            <div class="min-w-0">
+              <label class="block text-sm font-medium text-gray-700">
+                Criterios de Aceptación
+              </label>
+              <label
+                v-if="isEditMode"
+                class="mt-1 inline-flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer"
+              >
+                <input
+                  v-model="backupInComment.acceptanceCriteria"
+                  type="checkbox"
+                  class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                Backup en comentario
+              </label>
+            </div>
             <div class="flex items-center gap-1.5">
               <button
                 type="button"

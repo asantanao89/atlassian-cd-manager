@@ -110,7 +110,18 @@ export const createStorySchema = z.object({
     .transform((v) => (typeof v === 'string' && v.trim() ? v.trim() : null)),
 })
 
-export const updateStorySchema = createStorySchema
+const storyFieldBackupSchema = z
+  .object({
+    summary: z.string().optional(),
+    description: z.string().optional(),
+    acceptanceCriteria: z.string().optional(),
+  })
+  .partial()
+  .optional()
+
+export const updateStorySchema = createStorySchema.extend({
+  fieldBackup: storyFieldBackupSchema,
+})
 
 export const listStoryParentsSchema = z.object({
   includeDone: z
