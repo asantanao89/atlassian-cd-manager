@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-.PHONY: help dev pi pi-install pi-uninstall pi-start pi-stop pi-status pi-logs
+.PHONY: help dev pi pi-install pi-uninstall pi-start pi-stop pi-status pi-health pi-logs
 
 NVM_DIR ?= $(HOME)/.nvm
 REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
@@ -9,6 +9,7 @@ PLIST_LABEL := com.atlassian-cd-manager.codex-worker
 PLIST_TEMPLATE := $(WORKER_DIR)/launchd/$(PLIST_LABEL).plist.template
 PLIST_DEST := $(HOME)/Library/LaunchAgents/$(PLIST_LABEL).plist
 LOG_DIR := $(HOME)/Library/Logs/atlassian-cd-manager
+WORKER_HEALTH_URL ?= http://127.0.0.1:9876/health
 
 help:
 	@echo "Targets:"
@@ -19,6 +20,7 @@ help:
 	@echo "  make pi-start      - Load / start LaunchAgent"
 	@echo "  make pi-stop       - Unload / stop LaunchAgent"
 	@echo "  make pi-status     - Show LaunchAgent + local health"
+	@echo "  make pi-health     - Curl worker/tunnel health (localhost:9876)"
 	@echo "  make pi-logs       - Tail LaunchAgent logs"
 
 # Loads nvm, selects the Node version from .nvmrc, then runs the given command.
@@ -73,7 +75,10 @@ pi-status:
 	@if [[ -f "$(PLIST_DEST)" ]]; then echo "  installed: yes"; else echo "  installed: no"; fi
 	@launchctl print "gui/$$(id -u)/$(PLIST_LABEL)" 2>/dev/null | sed -n '1,20p' || echo "  launchctl: not loaded"
 	@echo "Health:"
-	@curl -sf --max-time 2 http://127.0.0.1:9876/health && echo || echo "  unreachable (is the worker running?)"
+	@$(MAKE) --no-print-directory pi-health
+
+pi-health:
+	@curl -sf --max-time 2 "$(WORKER_HEALTH_URL)" && echo || { echo "unreachable ($(WORKER_HEALTH_URL)) — worker or tunnel down?"; exit 1; }
 
 pi-logs:
 	@mkdir -p "$(LOG_DIR)"
