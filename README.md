@@ -110,12 +110,64 @@ Flujo en la app:
 ## Arrancar en local
 
 ```bash
+# Opción recomendada (selecciona Node con nvm)
+make dev
+
+# Equivalente
 npm run dev
 ```
 
 Esto levanta simultáneamente:
 - **Servidor**: `http://localhost:3000`
 - **Cliente**: `http://localhost:5173`
+
+### Codex worker (AI en el formulario de historias)
+
+La mejora con AI del formulario **Crear / Editar historia** no ejecuta Codex en la VM: el BFF llama a un worker HTTP en el **laptop** (`tools/codex-worker`), expuesto a la VM a través de túneles SSH vía Raspberry Pi. Detalle de túneles: [`tools/codex-worker/README.md`](tools/codex-worker/README.md).
+
+En el frontal verás un indicador **AI disponible / AI no disponible** junto al título del formulario. Se refresca cada 15s consultando `GET /api/ai/status`. Si el worker o los túneles están caídos, los botones **AI** quedan deshabilitados.
+
+#### Arranque manual (foreground)
+
+Requisitos: `CODEX_WORKER_TOKEN` (y opcionalmente URL/puerto) en `server/.env`, Codex CLI instalado y autenticado, dependencias del worker (`npm --prefix tools/codex-worker install`).
+
+```bash
+make pi
+```
+
+Health local:
+
+```bash
+curl -s http://127.0.0.1:9876/health
+```
+
+#### Arranque automático al iniciar sesión (macOS LaunchAgent)
+
+Instala un LaunchAgent que arranca el worker al login y lo reinicia si cae:
+
+```bash
+make pi-install
+```
+
+Gestión:
+
+| Comando | Descripción |
+|---|---|
+| `make pi-install` | Instala y arranca el LaunchAgent |
+| `make pi-uninstall` | Lo elimina |
+| `make pi-start` | Arranca / reinicia el servicio |
+| `make pi-stop` | Lo detiene |
+| `make pi-status` | Estado del LaunchAgent + health local |
+| `make pi-logs` | Sigue los logs (`~/Library/Logs/atlassian-cd-manager/`) |
+
+En la VM (donde corre el BFF) configura:
+
+```env
+CODEX_WORKER_URL=http://127.0.0.1:9876
+CODEX_WORKER_TOKEN=generate-a-long-random-secret
+```
+
+El token debe coincidir con el del laptop (`server/.env` local, leído por `make pi` / LaunchAgent). Los túneles SSH (laptop→Pi y VM→Pi) siguen siendo necesarios además del worker.
 
 ---
 
@@ -154,6 +206,9 @@ Regla formal del proyecto:
 
 | Comando | Descripción |
 |---|---|
+| `make dev` | Levanta cliente y servidor (`nvm use` + `npm run dev`) |
+| `make pi` | Levanta el Codex worker en foreground |
+| `make pi-install` / `pi-uninstall` / `pi-start` / `pi-stop` / `pi-status` / `pi-logs` | Gestiona el LaunchAgent del worker en macOS |
 | `npm run dev` | Levanta cliente y servidor en paralelo |
 | `npm run build` | Compila cliente y servidor |
 | `npm run test` | Ejecuta tests de cliente y servidor |
@@ -356,3 +411,11 @@ Los valores de duración deben seguir el formato Jira: `30m`, `1h`, `1h 30m`, `2
 ### El servidor no arranca
 
 Asegúrate de haber creado `server/.env` con todas las variables requeridas. El servidor falla rápido con un error claro si alguna variable falta o es inválida.
+
+### AI no disponible en Crear historia
+
+1. En el laptop: `make pi-status` (o `make pi` / `make pi-install`).
+2. Comprueba health: `curl -s http://127.0.0.1:9876/health`.
+3. Verifica túneles SSH laptop→Pi y VM→Pi (ver `tools/codex-worker/README.md`).
+4. En la VM, `CODEX_WORKER_URL` y `CODEX_WORKER_TOKEN` deben coincidir con el worker.
+5. En el BFF: `curl -s http://localhost:3000/api/ai/status` debe devolver `"available": true`.
