@@ -21,6 +21,8 @@ const envSchema = z.object({
   BITBUCKET_REPO_SLUG: z.string().min(1, 'BITBUCKET_REPO_SLUG is required').optional(),
   BITBUCKET_REPOS: z.string().optional(),
   DISCORD_CHANNELS: z.string().optional(),
+  CODEX_WORKER_URL: z.string().url('CODEX_WORKER_URL must be a valid URL').optional(),
+  CODEX_WORKER_TOKEN: z.string().min(1).optional(),
 })
 
 const discordChannelSchema = z.object({

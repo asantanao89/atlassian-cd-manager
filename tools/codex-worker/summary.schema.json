@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["improvedValue", "missingSections", "followUpQuestions"],
+  "properties": {
+    "improvedValue": {
+      "type": "string",
+      "description": "Improved field text for the requested Jira story field"
+    },
+    "missingSections": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Names of incomplete required sections; empty array if none"
+    },
+    "followUpQuestions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Concrete questions to complete missing info; empty array if none"
+    }
+  }
+}

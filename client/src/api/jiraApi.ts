@@ -2,6 +2,10 @@ import { httpClient } from './httpClient'
 import type {
   CreatePullRequestParams,
   CreatedPullRequest,
+  CreateStoryParams,
+  CreatedStory,
+  UpdateStoryParams,
+  StoryEditorIssue,
   JiraConnectionInfo,
   JiraIssueSummary,
   JiraIssueWithWorklogs,
@@ -11,6 +15,8 @@ import type {
   PullRequestBranchList,
   JiraUser,
   JiraWorklog,
+  StoryCreateOptions,
+  StoryParentOption,
 } from '../types/jira'
 
 export interface SearchIssuesParams {
@@ -122,5 +128,35 @@ export const jiraApi = {
   deleteWorklog: (issueKey: string, worklogId: string): Promise<void> =>
     httpClient.delete<void>(
       `/api/jira/issues/${encodeURIComponent(issueKey)}/worklogs/${worklogId}`,
+    ),
+
+  getStoryCreateOptions: (): Promise<StoryCreateOptions> =>
+    httpClient.get<StoryCreateOptions>('/api/jira/stories/create-options'),
+
+  listStoryParents: (params?: {
+    includeDone?: boolean
+    q?: string
+  }): Promise<{ parents: StoryParentOption[] }> => {
+    const search = new URLSearchParams()
+    if (params?.includeDone) search.set('includeDone', 'true')
+    if (params?.q?.trim()) search.set('q', params.q.trim())
+    const qs = search.toString()
+    return httpClient.get<{ parents: StoryParentOption[] }>(
+      `/api/jira/stories/parents${qs ? `?${qs}` : ''}`,
+    )
+  },
+
+  createStory: (params: CreateStoryParams): Promise<CreatedStory> =>
+    httpClient.post<CreatedStory>('/api/jira/stories', params),
+
+  getStoryForEdit: (issueKeyOrUrl: string): Promise<StoryEditorIssue> =>
+    httpClient.get<StoryEditorIssue>(
+      `/api/jira/stories/${encodeURIComponent(issueKeyOrUrl.trim())}`,
+    ),
+
+  updateStory: (issueKey: string, params: UpdateStoryParams): Promise<CreatedStory> =>
+    httpClient.put<CreatedStory>(
+      `/api/jira/stories/${encodeURIComponent(issueKey)}`,
+      params,
     ),
 }

@@ -6,6 +6,7 @@ import TimerView from '../views/TimerView.vue'
 import BranchView from '../views/BranchView.vue'
 import PullRequestView from '../views/PullRequestView.vue'
 import PricingView from '../views/PricingView.vue'
+import CreateStoryView from '../views/CreateStoryView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -39,6 +40,15 @@ const router = createRouter({
           component: HistoricView,
         },
       ],
+    },
+    {
+      path: '/stories',
+      name: 'stories',
+      component: CreateStoryView,
+    },
+    {
+      path: '/create-story',
+      redirect: '/stories',
     },
     {
       path: '/branch',

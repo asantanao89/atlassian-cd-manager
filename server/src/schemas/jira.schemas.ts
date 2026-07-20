@@ -75,3 +75,48 @@ export const updateTimetrackingSchema = z
 export const transitionIssueSchema = z.object({
   transitionId: z.string().min(1, 'transitionId is required'),
 })
+
+export const createStorySchema = z.object({
+  summary: z.string().trim().min(1, 'summary is required'),
+  issueTypeId: z.string().trim().min(1, 'issueTypeId is required'),
+  componentIds: z.array(z.string().min(1)).min(1, 'At least one component is required'),
+  valor: z.string().trim().min(1, 'valor is required'),
+  description: z.string().trim().optional().default(''),
+  parentKey: z
+    .string()
+    .trim()
+    .regex(/^[A-Z][A-Z0-9]+-\d+$/i, 'parentKey must be a Jira issue key')
+    .optional()
+    .nullable()
+    .transform((v) => (v ? v.toUpperCase() : null)),
+  pilarId: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .nullable()
+    .transform((v) => (v && v.length > 0 ? v : null)),
+  storyPoints: z
+    .union([z.number(), z.null(), z.undefined()])
+    .optional()
+    .transform((v) => (v === undefined || v === null ? null : v))
+    .refine((v) => v === null || (Number.isInteger(v) && v >= 0), {
+      message: 'storyPoints must be a non-negative integer',
+    }),
+  acceptanceCriteria: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((v) => (typeof v === 'string' && v.trim() ? v.trim() : null)),
+})
+
+export const updateStorySchema = createStorySchema
+
+export const listStoryParentsSchema = z.object({
+  includeDone: z
+    .union([z.boolean(), z.enum(['true', 'false', '1', '0'])])
+    .optional()
+    .default(false)
+    .transform((v) => v === true || v === 'true' || v === '1'),
+  q: z.string().trim().optional().default(''),
+})
