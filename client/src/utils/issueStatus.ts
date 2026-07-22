@@ -2,6 +2,34 @@ export function issueStatusBadgeClass(statusName: string): string {
   const value = statusName.trim().toLowerCase()
   if (!value) return 'bg-gray-100 text-gray-600'
 
+  // CDPM workflow (parent/story): grey / blue / green
+  if (value === 'backlog' || value.includes('backlog')) {
+    return 'bg-gray-100 text-gray-700'
+  }
+
+  if (
+    value.includes('aceptación po')
+    || value.includes('aceptacion po')
+    || value.includes('aceptación')
+    || value.includes('aceptacion')
+    || value.includes('en desarrollo')
+    || value.includes('finalizado desarrollo')
+    || value.includes('develop')
+    || value.includes('implement')
+  ) {
+    return 'bg-blue-100 text-blue-700'
+  }
+
+  if (
+    value.includes('descartado')
+    || value.includes('producción')
+    || value.includes('produccion')
+    || value.includes('release')
+    || value.includes('deploy')
+  ) {
+    return 'bg-green-100 text-green-700'
+  }
+
   if (
     value.includes('hecho')
     || value.includes('listo')
@@ -14,22 +42,11 @@ export function issueStatusBadgeClass(statusName: string): string {
   }
 
   if (
-    value.includes('producción')
-    || value.includes('produccion')
-    || value.includes('release')
-    || value.includes('deploy')
-  ) {
-    return 'bg-green-100 text-green-700'
-  }
-
-  if (
-    value.includes('en proceso')
+    value.includes('en curso')
     || value.includes('en progreso')
     || value.includes('progress')
     || value.includes('curso')
     || value.includes('doing')
-    || value.includes('develop')
-    || value.includes('implement')
   ) {
     return 'bg-blue-100 text-blue-700'
   }
@@ -39,7 +56,6 @@ export function issueStatusBadgeClass(statusName: string): string {
     || value.includes('to do')
     || value.includes('todo')
     || value.includes('open')
-    || value.includes('backlog')
     || value.includes('pend')
   ) {
     return 'bg-amber-100 text-amber-700'
