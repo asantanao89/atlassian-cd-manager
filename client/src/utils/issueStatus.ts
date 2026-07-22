@@ -1,16 +1,38 @@
+function normalizeStatusName(statusName: string): string {
+  return statusName
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/\s+/g, ' ')
+}
+
 export function issueStatusBadgeClass(statusName: string): string {
-  const value = statusName.trim().toLowerCase()
+  const value = normalizeStatusName(statusName)
   if (!value) return 'bg-gray-100 text-gray-600'
 
-  // CDPM workflow (parent/story): grey / blue / green
+  // Subtask in progress — keep blue (En Curso / En Proceso / En progreso)
+  if (
+    value === 'en curso'
+    || value === 'en proceso'
+    || value === 'en progreso'
+    || value.includes('en curso')
+    || value.includes('en proceso')
+    || value.includes('en progreso')
+    || value.includes('in progress')
+    || value.includes('progress')
+    || value.includes('doing')
+  ) {
+    return 'bg-blue-100 text-blue-700'
+  }
+
+  // CDPM parent/story workflow
   if (value === 'backlog' || value.includes('backlog')) {
     return 'bg-gray-100 text-gray-700'
   }
 
   if (
-    value.includes('aceptación po')
-    || value.includes('aceptacion po')
-    || value.includes('aceptación')
+    value.includes('aceptacion po')
     || value.includes('aceptacion')
     || value.includes('en desarrollo')
     || value.includes('finalizado desarrollo')
@@ -22,7 +44,6 @@ export function issueStatusBadgeClass(statusName: string): string {
 
   if (
     value.includes('descartado')
-    || value.includes('producción')
     || value.includes('produccion')
     || value.includes('release')
     || value.includes('deploy')
@@ -41,20 +62,15 @@ export function issueStatusBadgeClass(statusName: string): string {
     return 'bg-green-100 text-green-700'
   }
 
-  if (
-    value.includes('en curso')
-    || value.includes('en progreso')
-    || value.includes('progress')
-    || value.includes('curso')
-    || value.includes('doing')
-  ) {
+  // Generic "curso" after explicit phrases, so it does not steal other labels
+  if (value.includes('curso')) {
     return 'bg-blue-100 text-blue-700'
   }
 
   if (
     value.includes('por hacer')
     || value.includes('to do')
-    || value.includes('todo')
+    || value === 'todo'
     || value.includes('open')
     || value.includes('pend')
   ) {
