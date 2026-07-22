@@ -161,9 +161,14 @@ function formatCompactHours(seconds: number): string {
 }
 
 function onStatusChanged(payload: { issueKey: string; newStatusName: string }): void {
-  const issue = props.issues.find((item) => item.key === payload.issueKey)
-  if (!issue) return
-  issue.statusName = payload.newStatusName
+  for (const issue of props.issues) {
+    if (issue.key === payload.issueKey) {
+      issue.statusName = payload.newStatusName
+    }
+    if (issue.parentKey === payload.issueKey) {
+      issue.parentStatusName = payload.newStatusName
+    }
+  }
 }
 </script>
 
@@ -192,7 +197,6 @@ function onStatusChanged(payload: { issueKey: string; newStatusName: string }): 
             <th class="px-3 py-2 text-left font-medium">PARENT</th>
             <th class="px-3 py-2 text-left font-medium">TIPO</th>
             <th class="px-3 py-2 text-left font-medium">SUMMARY</th>
-            <th class="px-3 py-2 text-left font-medium">ESTADO</th>
             <th class="px-3 py-2 text-left font-medium">DEDICADO</th>
             <th class="px-3 py-2 text-left font-medium">ACCIONES</th>
           </tr>
@@ -201,7 +205,54 @@ function onStatusChanged(payload: { issueKey: string; newStatusName: string }): 
           <template v-for="issue in props.issues" :key="issue.id">
             <tr class="hover:bg-blue-50 transition-colors">
             <td class="px-3 py-2 font-mono font-medium whitespace-nowrap">
-              <div class="flex items-center gap-1">
+              <div class="flex flex-col items-start gap-0.5">
+                <div class="flex items-center gap-1">
+                  <button
+                    type="button"
+                    class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                    :class="copiedCellId === `${issue.id}-key` ? 'text-green-600' : ''"
+                    :title="copiedCellId === `${issue.id}-key` ? 'Copiado' : 'Copiar clave'"
+                    @click.stop="copyIssueKey(issue.key, `${issue.id}-key`)"
+                  >
+                    <svg v-if="copiedCellId !== `${issue.id}-key`" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
+                      <path d="M6.5 2.5A2.5 2.5 0 0 0 4 5v8A2.5 2.5 0 0 0 6.5 15.5h6A2.5 2.5 0 0 0 15 13V5a2.5 2.5 0 0 0-2.5-2.5h-6Zm0 1h6A1.5 1.5 0 0 1 14 5v8a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 5 13V5a1.5 1.5 0 0 1 1.5-1.5Z" />
+                      <path d="M3.5 6A.5.5 0 0 1 4 6.5v8A2.5 2.5 0 0 0 6.5 17H12a.5.5 0 0 1 0 1H6.5A3.5 3.5 0 0 1 3 14.5v-8a.5.5 0 0 1 .5-.5Z" />
+                    </svg>
+                    <svg v-else viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-8 8.07a1 1 0 0 1-1.42.007l-3-3.003a1 1 0 1 1 1.414-1.414l2.29 2.291 7.296-7.36a1 1 0 0 1 1.414-.005Z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                  <router-link
+                    :to="{ name: 'branch', query: { issue: issue.key } }"
+                    class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                    title="Crear rama"
+                    @click.stop
+                  >
+                    <svg viewBox="0 0 16 16" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
+                      <path d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.5 2.5 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25ZM11 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm-7 1a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z" />
+                    </svg>
+                  </router-link>
+                  <button
+                    type="button"
+                    class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                    title="Crear pull request"
+                    @click.stop="openRepoPicker(issue.key)"
+                  >
+                    <svg viewBox="0 0 16 16" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
+                      <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-indigo-600"
+                    title="Notificar a Discord"
+                    @click.stop="openDiscordNotify(issue.key, issue.summary)"
+                  >
+                    <svg viewBox="0 0 16 16" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
+                      <path d="M13.545 2.907a13.2 13.2 0 0 0-3.257-1.011.05.05 0 0 0-.052.025c-.141.25-.297.577-.406.833a12.2 12.2 0 0 0-3.658 0 8.5 8.5 0 0 0-.412-.833.05.05 0 0 0-.052-.025c-1.125.194-2.22.534-3.257 1.011a.04.04 0 0 0-.02.015C.356 6.024-.213 9.047.066 12.032a.05.05 0 0 0 .019.024 13.2 13.2 0 0 0 3.993 2.01.05.05 0 0 0 .056-.019 9.3 9.3 0 0 0 .816-1.329.05.05 0 0 0-.027-.07 8.7 8.7 0 0 1-1.248-.595.05.05 0 0 1-.005-.085 6.5 6.5 0 0 0 .248-.194.05.05 0 0 1 .051-.007c2.619 1.196 5.454 1.196 8.041 0a.05.05 0 0 1 .053.006 6.5 6.5 0 0 0 .247.195.05.05 0 0 1-.004.085 8.6 8.6 0 0 1-1.249.594.05.05 0 0 0-.027.07 9.9 9.9 0 0 0 .817 1.328.05.05 0 0 0 .055.02 13.2 13.2 0 0 0 4.001-2.01.05.05 0 0 0 .019-.023c.332-3.451-.568-6.424-2.365-9.127a.03.03 0 0 0-.02-.015ZM5.34 10.97c-.79 0-1.438-.73-1.438-1.623 0-.895.637-1.628 1.438-1.628.807 0 1.45.74 1.438 1.628 0 .894-.637 1.623-1.438 1.623Zm5.32 0c-.79 0-1.438-.73-1.438-1.623 0-.895.637-1.628 1.438-1.628.807 0 1.45.74 1.438 1.628 0 .894-.63 1.623-1.438 1.623Z" />
+                    </svg>
+                  </button>
+                </div>
                 <a
                   v-if="jiraBaseUrl"
                   class="text-blue-600 hover:text-blue-800 underline"
@@ -213,55 +264,62 @@ function onStatusChanged(payload: { issueKey: string; newStatusName: string }): 
                   {{ issue.key }}
                 </a>
                 <span v-else class="text-blue-600">{{ issue.key }}</span>
-                <button
-                  type="button"
-                  class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                  :class="copiedCellId === `${issue.id}-key` ? 'text-green-600' : ''"
-                  :title="copiedCellId === `${issue.id}-key` ? 'Copiado' : 'Copiar clave'"
-                  @click.stop="copyIssueKey(issue.key, `${issue.id}-key`)"
-                >
-                  <svg v-if="copiedCellId !== `${issue.id}-key`" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
-                    <path d="M6.5 2.5A2.5 2.5 0 0 0 4 5v8A2.5 2.5 0 0 0 6.5 15.5h6A2.5 2.5 0 0 0 15 13V5a2.5 2.5 0 0 0-2.5-2.5h-6Zm0 1h6A1.5 1.5 0 0 1 14 5v8a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 5 13V5a1.5 1.5 0 0 1 1.5-1.5Z" />
-                    <path d="M3.5 6A.5.5 0 0 1 4 6.5v8A2.5 2.5 0 0 0 6.5 17H12a.5.5 0 0 1 0 1H6.5A3.5 3.5 0 0 1 3 14.5v-8a.5.5 0 0 1 .5-.5Z" />
-                  </svg>
-                  <svg v-else viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-8 8.07a1 1 0 0 1-1.42.007l-3-3.003a1 1 0 1 1 1.414-1.414l2.29 2.291 7.296-7.36a1 1 0 0 1 1.414-.005Z" clip-rule="evenodd" />
-                  </svg>
-                </button>
-                <router-link
-                  :to="{ name: 'branch', query: { issue: issue.key } }"
-                  class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                  title="Crear rama"
-                  @click.stop
-                >
-                  <svg viewBox="0 0 16 16" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
-                    <path d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.5 2.5 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25ZM11 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm-7 1a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z" />
-                  </svg>
-                </router-link>
-                <button
-                  type="button"
-                  class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                  title="Crear pull request"
-                  @click.stop="openRepoPicker(issue.key)"
-                >
-                  <svg viewBox="0 0 16 16" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
-                    <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-indigo-600"
-                  title="Notificar a Discord"
-                  @click.stop="openDiscordNotify(issue.key, issue.summary)"
-                >
-                  <svg viewBox="0 0 16 16" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
-                    <path d="M13.545 2.907a13.2 13.2 0 0 0-3.257-1.011.05.05 0 0 0-.052.025c-.141.25-.297.577-.406.833a12.2 12.2 0 0 0-3.658 0 8.5 8.5 0 0 0-.412-.833.05.05 0 0 0-.052-.025c-1.125.194-2.22.534-3.257 1.011a.04.04 0 0 0-.02.015C.356 6.024-.213 9.047.066 12.032a.05.05 0 0 0 .019.024 13.2 13.2 0 0 0 3.993 2.01.05.05 0 0 0 .056-.019 9.3 9.3 0 0 0 .816-1.329.05.05 0 0 0-.027-.07 8.7 8.7 0 0 1-1.248-.595.05.05 0 0 1-.005-.085 6.5 6.5 0 0 0 .248-.194.05.05 0 0 1 .051-.007c2.619 1.196 5.454 1.196 8.041 0a.05.05 0 0 1 .053.006 6.5 6.5 0 0 0 .247.195.05.05 0 0 1-.004.085 8.6 8.6 0 0 1-1.249.594.05.05 0 0 0-.027.07 9.9 9.9 0 0 0 .817 1.328.05.05 0 0 0 .055.02 13.2 13.2 0 0 0 4.001-2.01.05.05 0 0 0 .019-.023c.332-3.451-.568-6.424-2.365-9.127a.03.03 0 0 0-.02-.015ZM5.34 10.97c-.79 0-1.438-.73-1.438-1.623 0-.895.637-1.628 1.438-1.628.807 0 1.45.74 1.438 1.628 0 .894-.637 1.623-1.438 1.623Zm5.32 0c-.79 0-1.438-.73-1.438-1.623 0-.895.637-1.628 1.438-1.628.807 0 1.45.74 1.438 1.628 0 .894-.63 1.623-1.438 1.623Z" />
-                  </svg>
-                </button>
+                <IssueStatusDropdown
+                  :issue-key="issue.key"
+                  :status-name="issue.statusName"
+                  @status-changed="onStatusChanged"
+                />
               </div>
             </td>
             <td class="px-3 py-2 font-mono font-medium whitespace-nowrap">
-              <div v-if="issue.parentKey" class="flex items-center gap-1">
+              <div v-if="issue.parentKey" class="flex flex-col items-start gap-0.5">
+                <div class="flex items-center gap-1">
+                  <button
+                    type="button"
+                    class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                    :class="copiedCellId === `${issue.id}-parent` ? 'text-green-600' : ''"
+                    :title="copiedCellId === `${issue.id}-parent` ? 'Copiado' : 'Copiar clave'"
+                    @click.stop="copyIssueKey(issue.parentKey, `${issue.id}-parent`)"
+                  >
+                    <svg v-if="copiedCellId !== `${issue.id}-parent`" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
+                      <path d="M6.5 2.5A2.5 2.5 0 0 0 4 5v8A2.5 2.5 0 0 0 6.5 15.5h6A2.5 2.5 0 0 0 15 13V5a2.5 2.5 0 0 0-2.5-2.5h-6Zm0 1h6A1.5 1.5 0 0 1 14 5v8a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 5 13V5a1.5 1.5 0 0 1 1.5-1.5Z" />
+                      <path d="M3.5 6A.5.5 0 0 1 4 6.5v8A2.5 2.5 0 0 0 6.5 17H12a.5.5 0 0 1 0 1H6.5A3.5 3.5 0 0 1 3 14.5v-8a.5.5 0 0 1 .5-.5Z" />
+                    </svg>
+                    <svg v-else viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-8 8.07a1 1 0 0 1-1.42.007l-3-3.003a1 1 0 1 1 1.414-1.414l2.29 2.291 7.296-7.36a1 1 0 0 1 1.414-.005Z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                  <router-link
+                    :to="{ name: 'branch', query: { issue: issue.parentKey } }"
+                    class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                    title="Crear rama"
+                    @click.stop
+                  >
+                    <svg viewBox="0 0 16 16" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
+                      <path d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.5 2.5 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25ZM11 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm-7 1a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z" />
+                    </svg>
+                  </router-link>
+                  <button
+                    type="button"
+                    class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                    title="Crear pull request"
+                    @click.stop="openRepoPicker(issue.parentKey!)"
+                  >
+                    <svg viewBox="0 0 16 16" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
+                      <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-indigo-600"
+                    title="Notificar a Discord"
+                    @click.stop="openDiscordNotify(issue.parentKey!, issue.parentSummary ?? issue.parentKey!)"
+                  >
+                    <svg viewBox="0 0 16 16" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
+                      <path d="M13.545 2.907a13.2 13.2 0 0 0-3.257-1.011.05.05 0 0 0-.052.025c-.141.25-.297.577-.406.833a12.2 12.2 0 0 0-3.658 0 8.5 8.5 0 0 0-.412-.833.05.05 0 0 0-.052-.025c-1.125.194-2.22.534-3.257 1.011a.04.04 0 0 0-.02.015C.356 6.024-.213 9.047.066 12.032a.05.05 0 0 0 .019.024 13.2 13.2 0 0 0 3.993 2.01.05.05 0 0 0 .056-.019 9.3 9.3 0 0 0 .816-1.329.05.05 0 0 0-.027-.07 8.7 8.7 0 0 1-1.248-.595.05.05 0 0 1-.005-.085 6.5 6.5 0 0 0 .248-.194.05.05 0 0 1 .051-.007c2.619 1.196 5.454 1.196 8.041 0a.05.05 0 0 1 .053.006 6.5 6.5 0 0 0 .247.195.05.05 0 0 1-.004.085 8.6 8.6 0 0 1-1.249.594.05.05 0 0 0-.027.07 9.9 9.9 0 0 0 .817 1.328.05.05 0 0 0 .055.02 13.2 13.2 0 0 0 4.001-2.01.05.05 0 0 0 .019-.023c.332-3.451-.568-6.424-2.365-9.127a.03.03 0 0 0-.02-.015ZM5.34 10.97c-.79 0-1.438-.73-1.438-1.623 0-.895.637-1.628 1.438-1.628.807 0 1.45.74 1.438 1.628 0 .894-.637 1.623-1.438 1.623Zm5.32 0c-.79 0-1.438-.73-1.438-1.623 0-.895.637-1.628 1.438-1.628.807 0 1.45.74 1.438 1.628 0 .894-.63 1.623-1.438 1.623Z" />
+                    </svg>
+                  </button>
+                </div>
                 <a
                   v-if="jiraBaseUrl"
                   class="text-blue-600 hover:text-blue-800 underline"
@@ -273,51 +331,13 @@ function onStatusChanged(payload: { issueKey: string; newStatusName: string }): 
                   {{ issue.parentKey }}
                 </a>
                 <span v-else class="text-blue-600">{{ issue.parentKey }}</span>
-                <button
-                  type="button"
-                  class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                  :class="copiedCellId === `${issue.id}-parent` ? 'text-green-600' : ''"
-                  :title="copiedCellId === `${issue.id}-parent` ? 'Copiado' : 'Copiar clave'"
-                  @click.stop="copyIssueKey(issue.parentKey, `${issue.id}-parent`)"
-                >
-                  <svg v-if="copiedCellId !== `${issue.id}-parent`" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
-                    <path d="M6.5 2.5A2.5 2.5 0 0 0 4 5v8A2.5 2.5 0 0 0 6.5 15.5h6A2.5 2.5 0 0 0 15 13V5a2.5 2.5 0 0 0-2.5-2.5h-6Zm0 1h6A1.5 1.5 0 0 1 14 5v8a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 5 13V5a1.5 1.5 0 0 1 1.5-1.5Z" />
-                    <path d="M3.5 6A.5.5 0 0 1 4 6.5v8A2.5 2.5 0 0 0 6.5 17H12a.5.5 0 0 1 0 1H6.5A3.5 3.5 0 0 1 3 14.5v-8a.5.5 0 0 1 .5-.5Z" />
-                  </svg>
-                  <svg v-else viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-8 8.07a1 1 0 0 1-1.42.007l-3-3.003a1 1 0 1 1 1.414-1.414l2.29 2.291 7.296-7.36a1 1 0 0 1 1.414-.005Z" clip-rule="evenodd" />
-                  </svg>
-                </button>
-                <router-link
-                  :to="{ name: 'branch', query: { issue: issue.parentKey } }"
-                  class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                  title="Crear rama"
-                  @click.stop
-                >
-                  <svg viewBox="0 0 16 16" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
-                    <path d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.5 2.5 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25ZM11 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm-7 1a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z" />
-                  </svg>
-                </router-link>
-                <button
-                  type="button"
-                  class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                  title="Crear pull request"
-                  @click.stop="openRepoPicker(issue.parentKey!)"
-                >
-                  <svg viewBox="0 0 16 16" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
-                    <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  class="inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-indigo-600"
-                  title="Notificar a Discord"
-                  @click.stop="openDiscordNotify(issue.parentKey!, issue.parentSummary ?? issue.parentKey!)"
-                >
-                  <svg viewBox="0 0 16 16" fill="currentColor" class="h-3.5 w-3.5" aria-hidden="true">
-                    <path d="M13.545 2.907a13.2 13.2 0 0 0-3.257-1.011.05.05 0 0 0-.052.025c-.141.25-.297.577-.406.833a12.2 12.2 0 0 0-3.658 0 8.5 8.5 0 0 0-.412-.833.05.05 0 0 0-.052-.025c-1.125.194-2.22.534-3.257 1.011a.04.04 0 0 0-.02.015C.356 6.024-.213 9.047.066 12.032a.05.05 0 0 0 .019.024 13.2 13.2 0 0 0 3.993 2.01.05.05 0 0 0 .056-.019 9.3 9.3 0 0 0 .816-1.329.05.05 0 0 0-.027-.07 8.7 8.7 0 0 1-1.248-.595.05.05 0 0 1-.005-.085 6.5 6.5 0 0 0 .248-.194.05.05 0 0 1 .051-.007c2.619 1.196 5.454 1.196 8.041 0a.05.05 0 0 1 .053.006 6.5 6.5 0 0 0 .247.195.05.05 0 0 1-.004.085 8.6 8.6 0 0 1-1.249.594.05.05 0 0 0-.027.07 9.9 9.9 0 0 0 .817 1.328.05.05 0 0 0 .055.02 13.2 13.2 0 0 0 4.001-2.01.05.05 0 0 0 .019-.023c.332-3.451-.568-6.424-2.365-9.127a.03.03 0 0 0-.02-.015ZM5.34 10.97c-.79 0-1.438-.73-1.438-1.623 0-.895.637-1.628 1.438-1.628.807 0 1.45.74 1.438 1.628 0 .894-.637 1.623-1.438 1.623Zm5.32 0c-.79 0-1.438-.73-1.438-1.623 0-.895.637-1.628 1.438-1.628.807 0 1.45.74 1.438 1.628 0 .894-.63 1.623-1.438 1.623Z" />
-                  </svg>
-                </button>
+                <IssueStatusDropdown
+                  v-if="issue.parentStatusName"
+                  :issue-key="issue.parentKey!"
+                  :status-name="issue.parentStatusName"
+                  @status-changed="onStatusChanged"
+                />
+                <span v-else class="text-xs text-gray-400">—</span>
               </div>
               <span v-else class="text-xs text-gray-400">—</span>
             </td>
@@ -343,13 +363,6 @@ function onStatusChanged(payload: { issueKey: string; newStatusName: string }): 
               >
                 {{ issue.summary }}
               </p>
-            </td>
-            <td class="px-3 py-2 whitespace-nowrap">
-              <IssueStatusDropdown
-                :issue-key="issue.key"
-                :status-name="issue.statusName"
-                @status-changed="onStatusChanged"
-              />
             </td>
             <td class="px-3 py-2 font-mono text-xs text-gray-600 whitespace-nowrap">
               {{ issue.timetracking.timeSpent ?? '—' }}
@@ -388,7 +401,7 @@ function onStatusChanged(payload: { issueKey: string; newStatusName: string }): 
             </td>
             </tr>
             <tr v-if="issue.parentKey && isParentDetailsOpen(issue)" class="bg-purple-50/40">
-              <td colspan="7" class="px-3 py-3">
+              <td colspan="6" class="px-3 py-3">
                 <div v-if="parentPullRequestsLoading[issue.parentKey]" class="text-xs text-gray-500">
                   Cargando pull requests abiertos de {{ issue.parentKey }}...
                 </div>
