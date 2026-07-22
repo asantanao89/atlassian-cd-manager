@@ -9,6 +9,7 @@ export interface NormalizedIssue {
   assigneeName: string | null
   parentKey: string | null
   parentSummary: string | null
+  parentStatusName: string | null
   updated: string
   timetracking: {
     originalEstimate?: string
@@ -49,6 +50,11 @@ export function normalizeIssue(raw: unknown): NormalizedIssue {
     parentFields && typeof parentFields.summary === 'string' && parentFields.summary.trim().length > 0
       ? parentFields.summary
       : null
+  const parentStatus = parentFields?.status as Record<string, unknown> | undefined
+  const parentStatusName =
+    parentStatus && typeof parentStatus.name === 'string' && parentStatus.name.trim().length > 0
+      ? parentStatus.name
+      : null
   const status = fields.status as Record<string, unknown> | undefined
   const issuetype = fields.issuetype as Record<string, unknown> | undefined
   const subtasks = (fields.subtasks ?? []) as Array<Record<string, unknown>>
@@ -62,6 +68,7 @@ export function normalizeIssue(raw: unknown): NormalizedIssue {
     assigneeName: assignee ? String(assignee.displayName ?? '') : null,
     parentKey: parent ? String(parent.key ?? '') : null,
     parentSummary,
+    parentStatusName,
     updated: String(fields.updated ?? ''),
     timetracking: {
       originalEstimate: tt.originalEstimate as string | undefined,

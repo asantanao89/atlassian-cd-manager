@@ -29,6 +29,7 @@ export interface JiraIssueSummary {
   assigneeName: string | null
   parentKey: string | null
   parentSummary: string | null
+  parentStatusName: string | null
   updated: string
   timetracking: JiraTimeTracking
   subtaskKeys: string[]

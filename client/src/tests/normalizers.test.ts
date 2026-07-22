@@ -12,6 +12,7 @@ describe('normalizeIssueResponse', () => {
       assigneeName: 'John Doe',
       parentKey: null,
       parentSummary: null,
+      parentStatusName: null,
       updated: '2026-04-29T10:00:00.000Z',
       timetracking: {
         originalEstimate: '4h',
@@ -70,6 +71,7 @@ describe('normalizeIssueResponse', () => {
     expect(issue.assigneeName).toBeNull()
     expect(issue.parentKey).toBeNull()
     expect(issue.parentSummary).toBeNull()
+    expect(issue.parentStatusName).toBeNull()
     expect(issue.subtaskKeys).toEqual([])
   })
 })
