@@ -25,7 +25,10 @@ let startPointDebounce: ReturnType<typeof setTimeout> | null = null
 const successMessage = ref<string | null>(null)
 const errorMessage = ref<string | null>(null)
 const createdBranch = ref<string | null>(null)
-const copyFeedback = ref<string | null>(null)
+const createdRepoSlug = ref<string | null>(null)
+const createdIssueCode = ref<string | null>(null)
+const copyFeedbackCheckout = ref<string | null>(null)
+const copyFeedbackWorktree = ref<string | null>(null)
 const isCreating = ref(false)
 
 // Pre-fill from query param ?issue=CDPM-123
@@ -72,6 +75,12 @@ const canSubmit = computed(
 const checkoutCommand = computed(() =>
   createdBranch.value ? `git fetch origin && git checkout ${createdBranch.value}` : null,
 )
+
+const worktreeCommand = computed(() => {
+  if (!createdBranch.value || !createdRepoSlug.value || !createdIssueCode.value) return null
+  const folder = `../${createdRepoSlug.value}-${createdIssueCode.value}`
+  return `git fetch origin && git worktree add "${folder}" "${createdBranch.value}"`
+})
 
 // Load configured repos
 const {
@@ -138,18 +147,26 @@ function handleSubmit() {
   successMessage.value = null
   errorMessage.value = null
   createdBranch.value = null
-  copyFeedback.value = null
+  createdRepoSlug.value = null
+  createdIssueCode.value = null
+  copyFeedbackCheckout.value = null
+  copyFeedbackWorktree.value = null
   isCreating.value = true
+
+  const issueCode = extractedCode.value
+  const repoSlug = selectedRepo.value
 
   bitbucketApi
     .createBranch({
-      repoSlug: selectedRepo.value,
+      repoSlug,
       name: branchPreview.value!,
       startPoint: startPoint.value.trim(),
     })
     .then((result) => {
       createdBranch.value = result.branch
-      successMessage.value = `✅ Rama '${result.branch}' creada correctamente en '${selectedRepo.value}'.`
+      createdRepoSlug.value = repoSlug
+      createdIssueCode.value = issueCode
+      successMessage.value = `✅ Rama '${result.branch}' creada correctamente en '${repoSlug}'.`
       issueInput.value = ''
       branchName.value = ''
       branchType.value = 'feature'
@@ -174,9 +191,22 @@ async function copyCheckoutCommand(): Promise<void> {
 
   try {
     await navigator.clipboard.writeText(checkoutCommand.value)
-    copyFeedback.value = 'Comando copiado.'
+    copyFeedbackCheckout.value = 'Comando copiado.'
+    copyFeedbackWorktree.value = null
   } catch {
-    copyFeedback.value = 'No se pudo copiar. Copia manualmente el comando.'
+    copyFeedbackCheckout.value = 'No se pudo copiar. Copia manualmente el comando.'
+  }
+}
+
+async function copyWorktreeCommand(): Promise<void> {
+  if (!worktreeCommand.value) return
+
+  try {
+    await navigator.clipboard.writeText(worktreeCommand.value)
+    copyFeedbackWorktree.value = 'Comando copiado.'
+    copyFeedbackCheckout.value = null
+  } catch {
+    copyFeedbackWorktree.value = 'No se pudo copiar. Copia manualmente el comando.'
   }
 }
 </script>
@@ -312,7 +342,29 @@ async function copyCheckoutCommand(): Promise<void> {
           Copiar
         </button>
       </div>
-      <p v-if="copyFeedback" class="mt-2 text-xs text-emerald-700">{{ copyFeedback }}</p>
+      <p v-if="copyFeedbackCheckout" class="mt-2 text-xs text-emerald-700">{{ copyFeedbackCheckout }}</p>
+    </div>
+
+    <div
+      v-if="worktreeCommand"
+      class="rounded-md bg-sky-50 border border-sky-200 px-4 py-3 text-sm text-sky-900"
+    >
+      <p class="text-xs font-medium text-sky-800 mb-1">Worktree: espacio de trabajo separado</p>
+      <p class="text-xs text-sky-700 mb-2">
+        Crea una carpeta hermana con esta rama ya hecha checkout, sin cambiar tu working tree actual.
+        Ejecuta el comando desde la raíz del clone local del repositorio.
+      </p>
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+        <code class="flex-1 rounded bg-sky-100 px-2 py-1 font-mono text-xs break-all">{{ worktreeCommand }}</code>
+        <button
+          type="button"
+          class="rounded-md bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
+          @click="copyWorktreeCommand"
+        >
+          Copiar
+        </button>
+      </div>
+      <p v-if="copyFeedbackWorktree" class="mt-2 text-xs text-sky-700">{{ copyFeedbackWorktree }}</p>
     </div>
 
     <div
