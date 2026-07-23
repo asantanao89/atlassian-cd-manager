@@ -6,6 +6,7 @@ import RepoPickerDialog from './RepoPickerDialog.vue'
 import DiscordNotifyDialog from './DiscordNotifyDialog.vue'
 import IssueStatusDropdown from './IssueStatusDropdown.vue'
 import IssuesTableFilters from './IssuesTableFilters.vue'
+import OpenWorktreeCell from './OpenWorktreeCell.vue'
 import { useQuery } from '@tanstack/vue-query'
 import { jiraApi } from '../api/jiraApi'
 import { useIssuesTableFilters } from '../composables/useIssuesTableFilters'
@@ -235,6 +236,7 @@ function onStatusChanged(payload: { issueKey: string; newStatusName: string }): 
             <th class="px-3 py-2 text-left font-medium">TIPO</th>
             <th class="px-3 py-2 text-left font-medium">SUMMARY</th>
             <th class="px-3 py-2 text-left font-medium">DEDICADO</th>
+            <th class="px-3 py-2 text-left font-medium">IDE</th>
             <th class="px-3 py-2 text-left font-medium">ACCIONES</th>
           </tr>
         </thead>
@@ -411,6 +413,9 @@ function onStatusChanged(payload: { issueKey: string; newStatusName: string }): 
               </span>
             </td>
             <td class="px-3 py-2 whitespace-nowrap">
+              <OpenWorktreeCell :issue-key="issue.key" />
+            </td>
+            <td class="px-3 py-2 whitespace-nowrap">
               <div class="flex items-center gap-1">
                 <button
                   class="text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-50 text-gray-600 transition-colors"
@@ -438,7 +443,7 @@ function onStatusChanged(payload: { issueKey: string; newStatusName: string }): 
             </td>
             </tr>
             <tr v-if="issue.parentKey && isParentDetailsOpen(issue)" class="bg-purple-50/40">
-              <td colspan="6" class="px-3 py-3">
+              <td colspan="7" class="px-3 py-3">
                 <div v-if="parentPullRequestsLoading[issue.parentKey]" class="text-xs text-gray-500">
                   Cargando pull requests abiertos de {{ issue.parentKey }}...
                 </div>
