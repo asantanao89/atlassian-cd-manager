@@ -186,8 +186,13 @@ function onDocumentClick(event: MouseEvent): void {
 }
 
 function onDocumentKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape' && previewOpen.value) {
+  if (event.key !== 'Escape') return
+  if (previewOpen.value) {
     previewOpen.value = false
+    return
+  }
+  if (savedStory.value) {
+    afterSaveContinue()
   }
 }
 

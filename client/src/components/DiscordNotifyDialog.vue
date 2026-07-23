@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { HttpError } from '../api/httpClient'
 import { discordApi } from '../api/discordApi'
 import { jiraApi } from '../api/jiraApi'
+import { useEscapeToClose } from '../composables/useEscapeToClose'
 import type { DiscordChannel } from '../types/discord'
 import type { JiraOpenPullRequest } from '../types/jira'
 
@@ -16,6 +17,7 @@ const emit = defineEmits<{
   close: []
 }>()
 
+useEscapeToClose(() => emit('close'), () => props.show)
 const channels = ref<DiscordChannel[]>([])
 const selectedChannelId = ref('')
 const message = ref('')

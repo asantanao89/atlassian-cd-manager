@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useEscapeToClose } from '../composables/useEscapeToClose'
+
 defineProps<{
   title: string
   message: string
@@ -11,6 +13,8 @@ const emit = defineEmits<{
   confirm: []
   cancel: []
 }>()
+
+useEscapeToClose(() => emit('cancel'))
 </script>
 
 <template>

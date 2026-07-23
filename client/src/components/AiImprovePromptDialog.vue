@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { aiApi } from '../api/aiApi'
 import { HttpError } from '../api/httpClient'
+import { useEscapeToClose } from '../composables/useEscapeToClose'
 import {
   fieldLabel as resolveFieldLabel,
   type AiImprovePromptContext,
@@ -44,6 +45,8 @@ function close(): void {
   requestId += 1
   emit('close')
 }
+
+useEscapeToClose(close, isOpen)
 
 function apply(): void {
   if (!improvedValue.value.trim()) return

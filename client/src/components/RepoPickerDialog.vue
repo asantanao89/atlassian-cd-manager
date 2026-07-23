@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { bitbucketApi } from '../api/bitbucketApi'
+import { useEscapeToClose } from '../composables/useEscapeToClose'
 
 const props = defineProps<{
   show: boolean
@@ -11,6 +12,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
 }>()
+
+useEscapeToClose(() => emit('close'), () => props.show)
 
 const router = useRouter()
 

@@ -7,6 +7,7 @@ import { jiraApi } from '../api/jiraApi'
 import { parseJiraDurationToSeconds } from '../utils/jiraDuration'
 import { usePendingChangesStore } from '../stores/pendingChanges.store'
 import type { PendingChange } from '../types/pendingChange'
+import { useEscapeToClose } from '../composables/useEscapeToClose'
 import ConnectionStatus from '../components/ConnectionStatus.vue'
 import TrackingSummaryCards from '../components/TrackingSummaryCards.vue'
 import DailyHoursChartBlock from '../components/DailyHoursChartBlock.vue'
@@ -376,6 +377,35 @@ function closeTaskPicker(): void {
   quickLogIssueSearch.value = ''
   isQuickLogDropdownOpen.value = false
 }
+
+
+const isAnyDashboardModalOpen = computed(
+  () =>
+    !!(panelMode.value && selectedIssue.value)
+    || isOverbookedDayPopupOpen.value
+    || isTaskPickerOpen.value
+    || isPendingDayPopupOpen.value,
+)
+
+function closeTopDashboardModal(): void {
+  if (panelMode.value) {
+    closePanel()
+    return
+  }
+  if (isTaskPickerOpen.value) {
+    closeTaskPicker()
+    return
+  }
+  if (isOverbookedDayPopupOpen.value) {
+    closeOverbookedDayPopup()
+    return
+  }
+  if (isPendingDayPopupOpen.value) {
+    closePendingDayPopup()
+  }
+}
+
+useEscapeToClose(closeTopDashboardModal, isAnyDashboardModalOpen)
 
 function selectQuickLogIssue(issue: JiraIssueSummary): void {
   selectedQuickLogIssueKey.value = issue.key
