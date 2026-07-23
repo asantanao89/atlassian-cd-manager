@@ -6,7 +6,7 @@ import RepoPickerDialog from './RepoPickerDialog.vue'
 import DiscordNotifyDialog from './DiscordNotifyDialog.vue'
 import IssueStatusDropdown from './IssueStatusDropdown.vue'
 import IssuesTableFilters from './IssuesTableFilters.vue'
-import OpenWorktreeCell from './OpenWorktreeCell.vue'
+import OpenIdeButton from './OpenIdeButton.vue'
 import { useQuery } from '@tanstack/vue-query'
 import { jiraApi } from '../api/jiraApi'
 import { useIssuesTableFilters } from '../composables/useIssuesTableFilters'
@@ -236,7 +236,6 @@ function onStatusChanged(payload: { issueKey: string; newStatusName: string }): 
             <th class="px-3 py-2 text-left font-medium">TIPO</th>
             <th class="px-3 py-2 text-left font-medium">SUMMARY</th>
             <th class="px-3 py-2 text-left font-medium">DEDICADO</th>
-            <th class="px-3 py-2 text-left font-medium">IDE</th>
             <th class="px-3 py-2 text-left font-medium">ACCIONES</th>
           </tr>
         </thead>
@@ -391,13 +390,13 @@ function onStatusChanged(payload: { issueKey: string; newStatusName: string }): 
             <td class="px-3 py-2 max-w-sm">
               <p
                 v-if="issue.parentSummary"
-                class="text-[11px] text-gray-400 leading-tight summary-clamp-2"
+                class="text-sm text-gray-500 leading-tight summary-clamp-2"
                 :title="issue.parentSummary"
               >
                 {{ issue.parentSummary }}
               </p>
               <p
-                class="text-gray-700 leading-tight summary-clamp-2"
+                class="text-base text-gray-800 leading-tight summary-clamp-2"
                 :title="issue.summary"
               >
                 {{ issue.summary }}
@@ -412,11 +411,8 @@ function onStatusChanged(payload: { issueKey: string; newStatusName: string }): 
                 {{ formatCompactHours(getPendingHoursForIssue(issue.key)) }}
               </span>
             </td>
-            <td class="px-3 py-2 whitespace-nowrap">
-              <OpenWorktreeCell :issue-key="issue.key" />
-            </td>
-            <td class="px-3 py-2 whitespace-nowrap">
-              <div class="flex items-center gap-1">
+            <td class="px-3 py-2">
+              <div class="grid grid-cols-2 gap-1 w-[11.5rem]">
                 <button
                   class="text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-50 text-gray-600 transition-colors"
                   title="Ver worklogs"
@@ -431,19 +427,21 @@ function onStatusChanged(payload: { issueKey: string; newStatusName: string }): 
                 >
                   + Log
                 </button>
+                <OpenIdeButton :issue-key="issue.key" />
                 <button
-                  class="text-xs px-2 py-1 text-gray-500 hover:text-gray-700 disabled:opacity-40"
+                  type="button"
+                  class="text-xs px-2 py-1 rounded border border-purple-300 hover:bg-purple-50 text-purple-700 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                   :title="issue.parentKey ? 'Ver PRs abiertos del parent' : 'Sin parent'"
                   :disabled="!issue.parentKey"
                   @click="toggleParentDetails(issue)"
                 >
-                  {{ isParentDetailsOpen(issue) ? '▼' : '▶' }}
+                  {{ isParentDetailsOpen(issue) ? 'Ocultar PRs' : 'PRs parent' }}
                 </button>
               </div>
             </td>
             </tr>
             <tr v-if="issue.parentKey && isParentDetailsOpen(issue)" class="bg-purple-50/40">
-              <td colspan="7" class="px-3 py-3">
+              <td colspan="6" class="px-3 py-3">
                 <div v-if="parentPullRequestsLoading[issue.parentKey]" class="text-xs text-gray-500">
                   Cargando pull requests abiertos de {{ issue.parentKey }}...
                 </div>

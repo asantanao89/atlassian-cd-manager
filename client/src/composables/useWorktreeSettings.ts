@@ -3,6 +3,7 @@ import {
   loadWorktreeSettings,
   saveWorktreeSettings,
   type WorktreeIde,
+  type WorktreeOpenTarget,
   type WorktreeSettings,
 } from '../utils/worktreeSettings'
 
@@ -31,9 +32,17 @@ export function useWorktreeSettings() {
     },
   })
 
+  const openTarget = computed({
+    get: () => settings.value.openTarget,
+    set: (value: WorktreeOpenTarget) => {
+      settings.value = { ...settings.value, openTarget: value }
+    },
+  })
+
   return {
     settings,
     repoSlug,
     ide,
+    openTarget,
   }
 }

@@ -1,11 +1,13 @@
 export type WorktreeIde = 'cursor' | 'vscode'
+export type WorktreeOpenTarget = 'worktree' | 'project'
 
 export interface WorktreeSettings {
   repoSlug: string
   ide: WorktreeIde
+  openTarget: WorktreeOpenTarget
 }
 
-/** Fixed parent folder where worktrees live (`../repo-CDPM-XXX` from the clone). */
+/** Fixed parent folder where worktrees and project clones live. */
 export const WORKTREE_BASE_PATH = '/Users/asantana/Documents/projects'
 
 const STORAGE_KEY = 'jira-utilities:worktree-settings'
@@ -13,6 +15,7 @@ const STORAGE_KEY = 'jira-utilities:worktree-settings'
 const DEFAULT_SETTINGS: WorktreeSettings = {
   repoSlug: '',
   ide: 'vscode',
+  openTarget: 'worktree',
 }
 
 function canUseStorage(): boolean {
@@ -21,6 +24,10 @@ function canUseStorage(): boolean {
 
 function isWorktreeIde(value: unknown): value is WorktreeIde {
   return value === 'cursor' || value === 'vscode'
+}
+
+function isWorktreeOpenTarget(value: unknown): value is WorktreeOpenTarget {
+  return value === 'worktree' || value === 'project'
 }
 
 export function loadWorktreeSettings(): WorktreeSettings {
@@ -34,6 +41,7 @@ export function loadWorktreeSettings(): WorktreeSettings {
     return {
       repoSlug: typeof parsed.repoSlug === 'string' ? parsed.repoSlug : '',
       ide: isWorktreeIde(parsed.ide) ? parsed.ide : 'vscode',
+      openTarget: isWorktreeOpenTarget(parsed.openTarget) ? parsed.openTarget : 'worktree',
     }
   } catch {
     return { ...DEFAULT_SETTINGS }
@@ -55,6 +63,22 @@ export function buildWorktreeFolderPath(repoSlug: string, issueKey: string): str
   const key = issueKey.trim()
   if (!repo || !key) return null
   return `${WORKTREE_BASE_PATH}/${repo}-${key}`
+}
+
+export function buildProjectFolderPath(repoSlug: string): string | null {
+  const repo = repoSlug.trim()
+  if (!repo) return null
+  return `${WORKTREE_BASE_PATH}/${repo}`
+}
+
+export function buildOpenFolderPath(
+  openTarget: WorktreeOpenTarget,
+  repoSlug: string,
+  issueKey: string,
+): string | null {
+  return openTarget === 'project'
+    ? buildProjectFolderPath(repoSlug)
+    : buildWorktreeFolderPath(repoSlug, issueKey)
 }
 
 export function isWorktreeSettingsReady(settings: Pick<WorktreeSettings, 'repoSlug'>): boolean {
