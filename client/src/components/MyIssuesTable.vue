@@ -5,8 +5,10 @@ import { storeToRefs } from 'pinia'
 import RepoPickerDialog from './RepoPickerDialog.vue'
 import DiscordNotifyDialog from './DiscordNotifyDialog.vue'
 import IssueStatusDropdown from './IssueStatusDropdown.vue'
+import IssuesTableFilters from './IssuesTableFilters.vue'
 import { useQuery } from '@tanstack/vue-query'
 import { jiraApi } from '../api/jiraApi'
+import { useIssuesTableFilters } from '../composables/useIssuesTableFilters'
 import { usePendingChangesStore } from '../stores/pendingChanges.store'
 import { parseJiraDurationToSeconds } from '../utils/jiraDuration'
 import type { JiraIssueSummary, JiraOpenPullRequest } from '../types/jira'
@@ -17,6 +19,20 @@ const props = defineProps<{
   isLoading: boolean
   error: string | null
 }>()
+
+const {
+  keyQuery,
+  statusKey,
+  statusParent,
+  keyStatusOptions,
+  parentStatusOptions,
+  hasIssuesWithoutParent,
+  filteredIssues,
+  hasActiveFilters,
+  clearFilters,
+  totalCount,
+  filteredCount,
+} = useIssuesTableFilters(() => props.issues)
 
 const emit = defineEmits<{
   viewWorklogs: [issue: JiraIssueSummary]
@@ -189,7 +205,28 @@ function onStatusChanged(payload: { issueKey: string; newStatusName: string }): 
       No hay issues para mostrar.
     </div>
 
-    <div v-else class="overflow-x-auto">
+    <div v-else>
+      <IssuesTableFilters
+        v-model:key-query="keyQuery"
+        v-model:status-key="statusKey"
+        v-model:status-parent="statusParent"
+        :key-status-options="keyStatusOptions"
+        :parent-status-options="parentStatusOptions"
+        :has-issues-without-parent="hasIssuesWithoutParent"
+        :has-active-filters="hasActiveFilters"
+        :filtered-count="filteredCount"
+        :total-count="totalCount"
+        @clear="clearFilters"
+      />
+
+      <div
+        v-if="filteredIssues.length === 0"
+        class="flex items-center justify-center py-10 text-gray-400 text-sm"
+      >
+        Ninguna issue coincide con el filtro.
+      </div>
+
+      <div v-else class="overflow-x-auto">
       <table class="w-full text-sm">
         <thead>
           <tr class="border-b border-gray-200 bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
@@ -202,7 +239,7 @@ function onStatusChanged(payload: { issueKey: string; newStatusName: string }): 
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
-          <template v-for="issue in props.issues" :key="issue.id">
+          <template v-for="issue in filteredIssues" :key="issue.id">
             <tr class="hover:bg-blue-50 transition-colors">
             <td class="px-3 py-2 font-mono font-medium whitespace-nowrap">
               <div class="flex flex-col items-start gap-0.5">
@@ -456,6 +493,7 @@ function onStatusChanged(payload: { issueKey: string; newStatusName: string }): 
           </template>
         </tbody>
       </table>
+    </div>
     </div>
   </div>
 
