@@ -378,7 +378,6 @@ function closeTaskPicker(): void {
   isQuickLogDropdownOpen.value = false
 }
 
-
 const isAnyDashboardModalOpen = computed(
   () =>
     !!(panelMode.value && selectedIssue.value)
@@ -495,14 +494,16 @@ function confirmQuickLogTask(): void {
         />
       </div>
     </section>
+  </div>
 
+  <Teleport to="body">
     <transition name="modal">
       <div
         v-if="panelMode && selectedIssue"
         class="modal-backdrop"
         @click.self="closePanel"
       >
-        <div class="modal-content bg-white border border-gray-200 rounded-lg p-4">
+        <div class="modal-content bg-white rounded-lg p-4">
           <div class="flex items-center justify-between mb-4">
             <span class="text-xs text-gray-400 font-mono">{{ selectedIssue.key }}</span>
             <button
@@ -551,7 +552,7 @@ function confirmQuickLogTask(): void {
         class="modal-backdrop"
         @click.self="closeOverbookedDayPopup"
       >
-        <div class="modal-content modal-content-pending-review bg-white border border-gray-200 rounded-lg p-5 space-y-4 shadow-xl">
+        <div class="modal-content modal-content-pending-review bg-white rounded-lg p-5 space-y-4">
           <div class="flex items-center justify-between">
             <div>
               <h3 class="text-sm font-semibold text-gray-700">
@@ -646,7 +647,7 @@ function confirmQuickLogTask(): void {
         class="modal-backdrop"
         @click.self="closeTaskPicker"
       >
-        <div class="modal-content modal-content-task-picker bg-white border border-gray-200 rounded-lg p-4 space-y-4 shadow-xl">
+        <div class="modal-content modal-content-task-picker bg-white rounded-lg p-4 space-y-4">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold text-gray-700">Selecciona una tarea</h3>
             <button
@@ -717,7 +718,7 @@ function confirmQuickLogTask(): void {
         class="modal-backdrop"
         @click.self="closePendingDayPopup"
       >
-        <div class="modal-content modal-content-pending-review bg-white border border-gray-200 rounded-lg p-5 space-y-4 shadow-xl">
+        <div class="modal-content modal-content-pending-review bg-white rounded-lg p-5 space-y-4">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold text-gray-700">
               Pendientes del día <span class="text-gray-500">{{ pendingDayLabel }}</span>
@@ -794,24 +795,34 @@ function confirmQuickLogTask(): void {
         </div>
       </div>
     </transition>
-  </div>
+  </Teleport>
 </template>
 
 <style scoped>
 .modal-backdrop {
   position: fixed;
   inset: 0;
+  /* Defeat parent Tailwind space-y-* margin on fixed overlays */
+  margin: 0 !important;
   background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 100;
+  padding: 2rem;
+  overflow: visible;
 }
 
 .modal-content {
   width: 24rem;
-  max-height: 90vh;
-  overflow-y: auto;
+  margin: auto;
+  overflow: visible;
+  border-color: transparent;
+  /* Omnidirectional shadow — Tailwind shadow-xl is mostly downward and looks like a flat top strip */
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.08),
+    0 0 28px rgba(0, 0, 0, 0.28),
+    0 14px 32px rgba(0, 0, 0, 0.18);
 }
 
 .modal-content-task-picker {
