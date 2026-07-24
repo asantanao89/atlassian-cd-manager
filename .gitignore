@@ -5,3 +5,9 @@ dist/
 .env.*.local
 *.log
 .DS_Store
+
+# Desktop app lives locally until extracted to its own repo
+desktop/
+
+# Local Cursor project rules
+.cursor/
