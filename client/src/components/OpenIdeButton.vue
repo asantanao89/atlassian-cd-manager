@@ -14,10 +14,24 @@ import {
 
 const props = defineProps<{
   issueKey: string
+  parentKey?: string | null
 }>()
 
 const isOpen = ref(false)
+const folderKey = ref(props.issueKey)
 const { settings, repoSlug, ide, openTarget } = useWorktreeSettings()
+
+const folderKeyOptions = computed(() => {
+  const options: Array<{ value: string; label: string }> = []
+  const parent = props.parentKey?.trim()
+  if (parent) {
+    options.push({ value: parent, label: `Parent · ${parent}` })
+  }
+  options.push({ value: props.issueKey, label: `Issue · ${props.issueKey}` })
+  return options
+})
+
+const defaultFolderKey = computed(() => props.parentKey?.trim() || props.issueKey)
 
 const { data: reposData } = useQuery({
   queryKey: ['bitbucket-repos'],
@@ -36,10 +50,16 @@ watch(
   },
 )
 
+watch(isOpen, (visible) => {
+  if (visible) {
+    folderKey.value = defaultFolderKey.value
+  }
+})
+
 const canOpen = computed(() => isWorktreeSettingsReady(settings.value))
 
 const targetPath = computed(() =>
-  buildOpenFolderPath(settings.value.openTarget, settings.value.repoSlug, props.issueKey),
+  buildOpenFolderPath(settings.value.openTarget, settings.value.repoSlug, folderKey.value),
 )
 
 function openDialog(): void {
@@ -68,6 +88,10 @@ function onTargetChange(event: Event): void {
 
 function onRepoChange(event: Event): void {
   repoSlug.value = (event.target as HTMLSelectElement).value
+}
+
+function onFolderKeyChange(event: Event): void {
+  folderKey.value = (event.target as HTMLSelectElement).value
 }
 
 function confirmOpen(): void {
@@ -120,6 +144,23 @@ function confirmOpen(): void {
               <option value="" disabled>Selecciona un repositorio</option>
               <option v-for="repo in reposData?.repos ?? []" :key="repo" :value="repo">
                 {{ repo }}
+              </option>
+            </select>
+          </div>
+
+          <div v-if="folderKeyOptions.length > 1">
+            <label class="mb-1 block text-xs font-medium text-gray-600">Clave worktree</label>
+            <select
+              class="w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-700 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+              :value="folderKey"
+              @change="onFolderKeyChange"
+            >
+              <option
+                v-for="option in folderKeyOptions"
+                :key="option.value"
+                :value="option.value"
+              >
+                {{ option.label }}
               </option>
             </select>
           </div>

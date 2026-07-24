@@ -427,7 +427,7 @@ function onStatusChanged(payload: { issueKey: string; newStatusName: string }): 
                 >
                   + Log
                 </button>
-                <OpenIdeButton :issue-key="issue.key" />
+                <OpenIdeButton :issue-key="issue.key" :parent-key="issue.parentKey" />
                 <button
                   type="button"
                   class="text-xs px-2 py-1 rounded border border-purple-300 hover:bg-purple-50 text-purple-700 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
