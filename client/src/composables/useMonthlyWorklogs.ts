@@ -3,6 +3,9 @@ import { useQuery } from '@tanstack/vue-query'
 import { jiraApi } from '../api/jiraApi'
 
 export interface WorklogPoint {
+  issueKey: string
+  summary: string
+  parentSummary: string | null
   started: string
   timeSpentSeconds: number
   authorDisplayName: string
@@ -38,18 +41,21 @@ export function useMonthlyWorklogs(year: Ref<number> | number, month: Ref<number
       })
 
 
-      const allWorklogs = issueSearch.issues.flatMap((issue) => issue.worklogs)
-
-      return allWorklogs
-        .filter(
-          (worklog) =>
-            worklog.authorDisplayName.trim().toLowerCase() === currentDisplayName.value,
-        )
-        .map((worklog) => ({
-          started: worklog.started,
-          timeSpentSeconds: worklog.timeSpentSeconds,
-          authorDisplayName: worklog.authorDisplayName,
-        }))
+      return issueSearch.issues.flatMap((issue) =>
+        issue.worklogs
+          .filter(
+            (worklog) =>
+              worklog.authorDisplayName.trim().toLowerCase() === currentDisplayName.value,
+          )
+          .map((worklog) => ({
+            issueKey: issue.key,
+            summary: issue.summary,
+            parentSummary: issue.parentSummary,
+            started: worklog.started,
+            timeSpentSeconds: worklog.timeSpentSeconds,
+            authorDisplayName: worklog.authorDisplayName,
+          })),
+      )
     },
     enabled: computed(() => currentDisplayName.value.length > 0),
     staleTime: 30_000,

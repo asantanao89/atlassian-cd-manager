@@ -12,15 +12,25 @@ interface TooltipState {
   x: number
   y: number
   lines: string[]
+  entries: DayEntry[]
+  footerLines: string[]
 }
 
 type RangeMode = 'week' | 'month'
+
+interface DayEntry {
+  issueKey: string
+  summary: string
+  parentSummary: string | null
+  seconds: number
+}
 
 interface DayBucket {
   date: Date
   seconds: number
   pendingSeconds: number
   isVacation: boolean
+  entries: DayEntry[]
 }
 
 const emit = defineEmits<{
@@ -34,12 +44,37 @@ const pendingChangesStore = usePendingChangesStore()
 const { changes } = storeToRefs(pendingChangesStore)
 const vacationStore = useVacationDaysStore()
 
-const tooltip = ref<TooltipState>({ visible: false, x: 0, y: 0, lines: [] })
+const tooltip = ref<TooltipState>({
+  visible: false,
+  x: 0,
+  y: 0,
+  lines: [],
+  entries: [],
+  footerLines: [],
+})
+
+function addEntrySeconds(
+  entries: DayEntry[],
+  issueKey: string,
+  seconds: number,
+  summary: string,
+  parentSummary: string | null,
+): void {
+  if (!issueKey || seconds === 0) return
+  const existing = entries.find((entry) => entry.issueKey === issueKey)
+  if (existing) {
+    existing.seconds += seconds
+    return
+  }
+  entries.push({ issueKey, summary, parentSummary, seconds })
+}
 
 function showTooltip(event: MouseEvent, bucket: DayBucket): void {
   const lines: string[] = [
     bucket.date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }),
   ]
+  const footerLines: string[] = []
+  let entries: DayEntry[] = []
 
   if (bucket.isVacation) {
     lines.push('🏖 Día de vacaciones')
@@ -48,17 +83,27 @@ function showTooltip(event: MouseEvent, bucket: DayBucket): void {
     if (bucket.pendingSeconds !== 0) {
       lines.push(`Pendiente: ${formatSignedHours(bucket.pendingSeconds)}`)
     }
+
+    entries = [...bucket.entries].sort((a, b) => b.seconds - a.seconds)
+
     const total = bucket.seconds + bucket.pendingSeconds
     if (total < 28800) {
-      lines.push(`Faltan: ${formatHours(28800 - total)}`)
+      footerLines.push(`Faltan: ${formatHours(28800 - total)}`)
     } else if (total > 28800) {
-      lines.push(`Extra: +${formatHours(total - 28800)}`)
+      footerLines.push(`Extra: +${formatHours(total - 28800)}`)
     } else {
-      lines.push('Objetivo cumplido ✓')
+      footerLines.push('Objetivo cumplido ✓')
     }
   }
 
-  tooltip.value = { visible: true, x: event.clientX, y: event.clientY, lines }
+  tooltip.value = {
+    visible: true,
+    x: event.clientX,
+    y: event.clientY,
+    lines,
+    entries,
+    footerLines,
+  }
 }
 
 function hideTooltip(): void {
@@ -219,14 +264,28 @@ const buckets = computed<DayBucket[]>(() => {
       const day = new Date(start)
       day.setDate(start.getDate() + i)
       if (isWeekend(day)) continue
-      days.push({ date: day, seconds: 0, pendingSeconds: 0, isVacation: vacationStore.isVacationDay(day) })
+      days.push({
+        date: day,
+        seconds: 0,
+        pendingSeconds: 0,
+        isVacation: vacationStore.isVacationDay(day),
+        entries: [],
+      })
     }
 
     for (const row of rows) {
       const date = atStartOfDay(new Date(row.started))
       if (isWeekend(date)) continue
       const bucket = days.find((item) => isSameDay(item.date, date))
-      if (bucket) bucket.seconds += row.timeSpentSeconds
+      if (!bucket) continue
+      bucket.seconds += row.timeSpentSeconds
+      addEntrySeconds(
+        bucket.entries,
+        row.issueKey,
+        row.timeSpentSeconds,
+        row.summary,
+        row.parentSummary,
+      )
     }
 
     applyPendingChanges(days)
@@ -243,7 +302,13 @@ const buckets = computed<DayBucket[]>(() => {
     const day = new Date(monthStart)
     day.setDate(monthStart.getDate() + i)
     if (isWeekend(day)) continue
-    days.push({ date: day, seconds: 0, pendingSeconds: 0, isVacation: vacationStore.isVacationDay(day) })
+    days.push({
+      date: day,
+      seconds: 0,
+      pendingSeconds: 0,
+      isVacation: vacationStore.isVacationDay(day),
+      entries: [],
+    })
   }
 
   for (const row of rows) {
@@ -253,7 +318,15 @@ const buckets = computed<DayBucket[]>(() => {
       continue
     }
     const bucket = days.find((item) => isSameDay(item.date, date))
-    if (bucket) bucket.seconds += row.timeSpentSeconds
+    if (!bucket) continue
+    bucket.seconds += row.timeSpentSeconds
+    addEntrySeconds(
+      bucket.entries,
+      row.issueKey,
+      row.timeSpentSeconds,
+      row.summary,
+      row.parentSummary,
+    )
   }
 
   applyPendingChanges(days)
@@ -323,10 +396,40 @@ const errorMessage = computed(() => {
     <Teleport to="body">
       <div
         v-if="tooltip.visible"
-        class="fixed z-50 pointer-events-none rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-lg text-xs text-gray-700 space-y-0.5 -translate-x-1/2 -translate-y-full"
+        class="fixed z-50 pointer-events-none max-w-sm rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-lg text-xs text-gray-700 space-y-0.5 -translate-x-1/2 -translate-y-full"
         :style="{ left: `${tooltip.x}px`, top: `${tooltip.y - 10}px` }"
       >
         <p v-for="(line, i) in tooltip.lines" :key="i" :class="i === 0 ? 'font-semibold text-gray-800' : ''">{{ line }}</p>
+        <ul
+          v-if="tooltip.entries.length > 0"
+          class="mt-1.5 space-y-2 border-t border-gray-100 pt-1.5"
+        >
+          <li
+            v-for="entry in tooltip.entries"
+            :key="entry.issueKey"
+            class="flex items-start justify-between gap-3"
+          >
+            <div class="min-w-0 space-y-0.5">
+              <p class="font-mono font-medium text-blue-700">{{ entry.issueKey }}</p>
+              <p class="truncate text-gray-800" :title="entry.summary">{{ entry.summary }}</p>
+              <p
+                v-if="entry.parentSummary"
+                class="truncate text-gray-500"
+                :title="entry.parentSummary"
+              >
+                {{ entry.parentSummary }}
+              </p>
+            </div>
+            <span class="shrink-0 tabular-nums text-gray-600 pt-0.5">{{ formatHours(entry.seconds) }}</span>
+          </li>
+        </ul>
+        <p
+          v-for="(line, i) in tooltip.footerLines"
+          :key="`footer-${i}`"
+          class="mt-1.5 border-t border-gray-100 pt-1.5"
+        >
+          {{ line }}
+        </p>
       </div>
     </Teleport>
     <div class="flex items-center justify-between gap-3 flex-wrap">
