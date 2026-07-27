@@ -97,6 +97,86 @@ class JiraClient {
       return this.networkError()
     }
   }
+
+  /**
+   * GET that does not follow redirects — used to read Location (media file id).
+   */
+  async getRedirectLocation(path: string): Promise<RequestResult<string | null>> {
+    try {
+      const response = await fetch(`${this.baseUrl}${path}`, {
+        method: 'GET',
+        redirect: 'manual',
+        headers: {
+          Authorization: this.authHeader,
+          Accept: '*/*',
+        },
+      })
+      if (response.status >= 300 && response.status < 400) {
+        return {
+          ok: true,
+          data: response.headers.get('location'),
+          status: response.status,
+        }
+      }
+      if (!response.ok) {
+        let data: unknown = null
+        try {
+          data = await response.json()
+        } catch {
+          data = null
+        }
+        return { ok: false, error: mapJiraError(response.status, data) }
+      }
+      // Some environments may follow / omit Location; fall back to final URL if present.
+      return { ok: true, data: response.url || null, status: response.status }
+    } catch {
+      return this.networkError()
+    }
+  }
+
+  async getBinary(
+    path: string,
+  ): Promise<
+    | { ok: true; data: Buffer; contentType: string; status: number }
+    | { ok: false; error: JiraApiError }
+  > {
+    try {
+      const response = await fetch(`${this.baseUrl}${path}`, {
+        method: 'GET',
+        redirect: 'follow',
+        headers: {
+          Authorization: this.authHeader,
+          Accept: '*/*',
+        },
+      })
+      if (!response.ok) {
+        let data: unknown = null
+        try {
+          data = await response.json()
+        } catch {
+          data = null
+        }
+        return { ok: false, error: mapJiraError(response.status, data) }
+      }
+      const contentType =
+        response.headers.get('content-type') || 'application/octet-stream'
+      const ab = await response.arrayBuffer()
+      return {
+        ok: true,
+        data: Buffer.from(ab),
+        contentType,
+        status: response.status,
+      }
+    } catch {
+      return {
+        ok: false,
+        error: {
+          statusCode: 503,
+          message: 'No se pudo conectar con Jira. Verifica JIRA_BASE_URL y la conexión de red.',
+        },
+      }
+    }
+  }
 }
 
 let _client: JiraClient | null = null

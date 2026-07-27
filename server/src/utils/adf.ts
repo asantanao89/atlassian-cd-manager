@@ -54,17 +54,78 @@ export interface AdfTableNode {
   content: AdfTableRowNode[]
 }
 
+export interface AdfMediaAttrs {
+  type: 'file' | 'external'
+  id?: string
+  collection?: string
+  url?: string
+  width?: number
+  height?: number
+  alt?: string
+}
+
+export interface AdfMediaNode {
+  type: 'media'
+  attrs: AdfMediaAttrs
+}
+
+export interface AdfMediaSingleNode {
+  type: 'mediaSingle'
+  attrs?: { layout?: string }
+  content: AdfMediaNode[]
+}
+
+export interface AdfMediaGroupNode {
+  type: 'mediaGroup'
+  content: AdfMediaNode[]
+}
+
 export type AdfBlockNode =
   | AdfParagraphNode
   | AdfHeadingNode
   | AdfBulletListNode
   | AdfOrderedListNode
   | AdfTableNode
+  | AdfMediaSingleNode
+  | AdfMediaGroupNode
 
 export interface AdfDoc {
   type: 'doc'
   version: 1
   content: AdfBlockNode[]
+}
+
+export type AdfToMarkdownOptions = {
+  /** Issue key used to build authenticated media proxy URLs for file media. */
+  issueKey?: string
+}
+
+/** Match our BFF media proxy path, with or without an absolute origin. */
+function parseJiraMediaProxyTarget(
+  target: string,
+): { fileId: string; query: string } | null {
+  let path = target
+  let query = ''
+
+  if (/^https?:\/\//i.test(target)) {
+    try {
+      const url = new URL(target)
+      path = url.pathname
+      query = url.search.startsWith('?') ? url.search.slice(1) : ''
+    } catch {
+      return null
+    }
+  } else {
+    const qIndex = path.indexOf('?')
+    if (qIndex >= 0) {
+      query = path.slice(qIndex + 1)
+      path = path.slice(0, qIndex)
+    }
+  }
+
+  const match = path.match(/^\/api\/jira\/issues\/[^/]+\/media\/([^/]+)$/)
+  if (!match) return null
+  return { fileId: decodeURIComponent(match[1]), query }
 }
 
 export function buildAdfComment(text: string): AdfDoc {
@@ -147,8 +208,51 @@ function tableCell(text: string, header: boolean): AdfTableCellNode {
   }
 }
 
+function parseMarkdownImageLine(trimmed: string): AdfMediaSingleNode | null {
+  const match = trimmed.match(/^!\[([^\]]*)\]\(([^)\s]+)\)$/)
+  if (!match) return null
+
+  const alt = match[1]
+  const target = match[2]
+  const mediaProxy = parseJiraMediaProxyTarget(target)
+  if (mediaProxy) {
+    const params = new URLSearchParams(mediaProxy.query)
+    const collection = params.get('collection') ?? ''
+    const layout = params.get('layout') || 'center'
+    const widthRaw = params.get('width')
+    const heightRaw = params.get('height')
+    const width = widthRaw ? Number(widthRaw) : undefined
+    const height = heightRaw ? Number(heightRaw) : undefined
+    const attrs: AdfMediaAttrs = {
+      type: 'file',
+      id: mediaProxy.fileId,
+      collection,
+    }
+    if (width !== undefined && Number.isFinite(width)) attrs.width = width
+    if (height !== undefined && Number.isFinite(height)) attrs.height = height
+    if (alt && alt !== 'Image') attrs.alt = alt
+    return {
+      type: 'mediaSingle',
+      attrs: { layout },
+      content: [{ type: 'media', attrs }],
+    }
+  }
+
+  if (/^https?:\/\//i.test(target)) {
+    const attrs: AdfMediaAttrs = { type: 'external', url: target }
+    if (alt && alt !== 'Image') attrs.alt = alt
+    return {
+      type: 'mediaSingle',
+      attrs: { layout: 'center' },
+      content: [{ type: 'media', attrs }],
+    }
+  }
+
+  return null
+}
+
 /**
- * Converts a subset of Markdown (headings, paragraphs, lists, tables, bold/italic/code)
+ * Converts a subset of Markdown (headings, paragraphs, lists, tables, bold/italic/code, images)
  * into Atlassian Document Format for Jira description fields.
  */
 export function markdownToAdf(markdown: string): AdfDoc {
@@ -161,6 +265,13 @@ export function markdownToAdf(markdown: string): AdfDoc {
     const trimmed = line.trim()
 
     if (!trimmed) {
+      i += 1
+      continue
+    }
+
+    const mediaNode = parseMarkdownImageLine(trimmed)
+    if (mediaNode) {
+      content.push(mediaNode)
       i += 1
       continue
     }
@@ -253,6 +364,7 @@ export function markdownToAdf(markdown: string): AdfDoc {
       const next = lines[i].trim()
       if (
         !next ||
+        parseMarkdownImageLine(next) ||
         /^(#{1,6})\s+/.test(next) ||
         /^[-*]\s+/.test(next) ||
         /^\d+\.\s+/.test(next) ||
@@ -277,6 +389,7 @@ export function markdownToAdf(markdown: string): AdfDoc {
 
 export function extractPlainTextFromAdf(doc: unknown): string {
   return adfToMarkdown(doc)
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
     .replace(/\*\*/g, '')
     .replace(/`/g, '')
     .replace(/^#+\s+/gm, '')
@@ -286,11 +399,55 @@ export function extractPlainTextFromAdf(doc: unknown): string {
     .trim()
 }
 
-function inlineToMarkdown(nodes: unknown[]): string {
+function mediaAttrsToMarkdown(
+  attrs: Record<string, unknown>,
+  options?: AdfToMarkdownOptions,
+  layout?: string,
+): string {
+  const mediaType = String(attrs.type ?? '')
+  const alt =
+    typeof attrs.alt === 'string' && attrs.alt.trim() ? attrs.alt.trim() : 'Image'
+
+  if (mediaType === 'external' && typeof attrs.url === 'string' && attrs.url) {
+    return `![${alt}](${attrs.url})`
+  }
+
+  if (mediaType === 'file' && typeof attrs.id === 'string' && attrs.id && options?.issueKey) {
+    const params = new URLSearchParams()
+    if (typeof attrs.collection === 'string' && attrs.collection) {
+      params.set('collection', attrs.collection)
+    }
+    if (layout) params.set('layout', layout)
+    const width = Number(attrs.width)
+    const height = Number(attrs.height)
+    if (Number.isFinite(width) && width > 0) params.set('width', String(Math.trunc(width)))
+    if (Number.isFinite(height) && height > 0) params.set('height', String(Math.trunc(height)))
+    const qs = params.toString()
+    const issueKey = encodeURIComponent(options.issueKey)
+    const fileId = encodeURIComponent(attrs.id)
+    return `![${alt}](/api/jira/issues/${issueKey}/media/${fileId}${qs ? `?${qs}` : ''})`
+  }
+
+  return ''
+}
+
+function mediaNodeToMarkdown(node: unknown, options?: AdfToMarkdownOptions, layout?: string): string {
+  if (!node || typeof node !== 'object') return ''
+  const n = node as Record<string, unknown>
+  if (n.type !== 'media' || !n.attrs || typeof n.attrs !== 'object') return ''
+  return mediaAttrsToMarkdown(n.attrs as Record<string, unknown>, options, layout)
+}
+
+function inlineToMarkdown(nodes: unknown[], options?: AdfToMarkdownOptions): string {
   const parts: string[] = []
   for (const node of nodes) {
     if (!node || typeof node !== 'object') continue
     const n = node as Record<string, unknown>
+    if (n.type === 'mediaInline' && n.attrs && typeof n.attrs === 'object') {
+      const md = mediaAttrsToMarkdown(n.attrs as Record<string, unknown>, options)
+      if (md) parts.push(md)
+      continue
+    }
     if (n.type !== 'text' || typeof n.text !== 'string') continue
     let text = n.text
     const marks = Array.isArray(n.marks) ? n.marks : []
@@ -309,8 +466,9 @@ function inlineToMarkdown(nodes: unknown[]): string {
 
 /**
  * Best-effort ADF → Markdown for editable Description/Valor fields.
+ * When `issueKey` is provided, embedded Jira file media becomes proxy image URLs.
  */
-export function adfToMarkdown(doc: unknown): string {
+export function adfToMarkdown(doc: unknown, options?: AdfToMarkdownOptions): string {
   try {
     if (!doc || typeof doc !== 'object') return typeof doc === 'string' ? doc : ''
     if (typeof doc === 'string') return doc
@@ -331,15 +489,41 @@ export function adfToMarkdown(doc: unknown): string {
             6,
             Math.max(1, Number((b.attrs as { level?: number } | undefined)?.level ?? 1)),
           )
-          lines.push(`${'#'.repeat(level)} ${inlineToMarkdown(content)}`)
+          lines.push(`${'#'.repeat(level)} ${inlineToMarkdown(content, options)}`)
           lines.push('')
           continue
         }
 
         if (type === 'paragraph') {
-          const text = inlineToMarkdown(content)
+          const text = inlineToMarkdown(content, options)
           lines.push(text)
           lines.push('')
+          continue
+        }
+
+        if (type === 'mediaSingle') {
+          const layout =
+            typeof (b.attrs as { layout?: string } | undefined)?.layout === 'string'
+              ? String((b.attrs as { layout?: string }).layout)
+              : undefined
+          for (const child of content) {
+            const md = mediaNodeToMarkdown(child, options, layout)
+            if (md) {
+              lines.push(md)
+              lines.push('')
+            }
+          }
+          continue
+        }
+
+        if (type === 'mediaGroup') {
+          for (const child of content) {
+            const md = mediaNodeToMarkdown(child, options)
+            if (md) {
+              lines.push(md)
+              lines.push('')
+            }
+          }
           continue
         }
 
@@ -352,7 +536,7 @@ export function adfToMarkdown(doc: unknown): string {
             const para = li.content.find(
               (c) => c && typeof c === 'object' && (c as { type?: string }).type === 'paragraph',
             ) as { content?: unknown[] } | undefined
-            const text = inlineToMarkdown(para?.content ?? [])
+            const text = inlineToMarkdown(para?.content ?? [], options)
             lines.push(type === 'bulletList' ? `- ${text}` : `${index}. ${text}`)
             index += 1
           }
@@ -379,7 +563,7 @@ export function adfToMarkdown(doc: unknown): string {
                   if (!child || typeof child !== 'object') return ''
                   const ch = child as Record<string, unknown>
                   if (ch.type === 'paragraph' && Array.isArray(ch.content)) {
-                    return inlineToMarkdown(ch.content)
+                    return inlineToMarkdown(ch.content, options)
                   }
                   return ''
                 })

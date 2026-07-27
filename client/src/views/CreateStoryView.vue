@@ -16,6 +16,16 @@ import { workTypeBadgeClass } from '../utils/workTypeIcons'
 
 marked.setOptions({ breaks: true, gfm: true })
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000'
+
+/** Render Markdown preview HTML, rewriting relative /api image URLs to the BFF origin. */
+function markdownToPreviewHtml(markdown: string): string {
+  const md = markdown.trim()
+  if (!md) return ''
+  const html = marked.parse(md, { async: false }) as string
+  return html.replace(/(<img\b[^>]*\bsrc=["'])(\/api\/)/gi, `$1${API_BASE_URL}$2`)
+}
+
 type EditorMode = 'chooser' | 'clone-select' | 'create' | 'edit' | 'clone'
 
 type CloneFieldId =
@@ -275,17 +285,9 @@ const selectedPilar = computed(
 )
 
 const previewSummary = computed(() => summary.value.trim() || 'Sin título')
-const previewDescriptionHtml = computed(() => {
-  const md = description.value.trim()
-  if (!md) return ''
-  return marked.parse(md, { async: false }) as string
-})
+const previewDescriptionHtml = computed(() => markdownToPreviewHtml(description.value))
 const previewValor = computed(() => valor.value.trim() || '—')
-const previewAcceptanceHtml = computed(() => {
-  const md = acceptanceCriteria.value.trim()
-  if (!md) return ''
-  return marked.parse(md, { async: false }) as string
-})
+const previewAcceptanceHtml = computed(() => markdownToPreviewHtml(acceptanceCriteria.value))
 const storyPointsError = computed(() => {
   const raw = storyPoints.value.trim()
   if (!raw) return null
@@ -1567,6 +1569,15 @@ const saveContinueLabel = computed(() => {
   background: #f3f4f6;
   font-weight: 600;
   color: #374151;
+}
+
+.markdown-preview :deep(img) {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0.5rem 0;
+  border-radius: 0.25rem;
+  border: 1px solid #e5e7eb;
 }
 
 .markdown-preview :deep(> :first-child) {

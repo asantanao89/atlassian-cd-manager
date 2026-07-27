@@ -16,6 +16,7 @@ import {
 import { ALLOWED_ISSUE_TYPE_IDS, ALLOWED_PILARES_OPTION_IDS, STORY_CREATE_CONFIG } from '../jira/storyCreateConfig'
 import { parseJiraIssueKey } from '../jira/parseIssueKey'
 import { buildFieldBackupCommentMarkdown } from '../jira/buildFieldBackupComment'
+import { fetchIssueMediaBinary } from '../jira/resolveIssueMedia'
 import { adfToMarkdown, buildAdfComment, markdownToAdf } from '../utils/adf'
 
 const ADJUST_ESTIMATE_VALUES = new Set(['auto', 'leave', 'new', 'manual'])
@@ -609,6 +610,32 @@ export async function jiraRoutes(fastify: FastifyInstance): Promise<void> {
     return null
   }
 
+  // GET /api/jira/issues/:issueKey/media/:fileId — proxy ADF description images
+  fastify.get(
+    '/issues/:issueKey/media/:fileId',
+    async (
+      req: FastifyRequest<{ Params: { issueKey: string; fileId: string } }>,
+      reply,
+    ) => {
+      const parsedKey = parseJiraIssueKey(req.params.issueKey)
+      if (!parsedKey) {
+        return reply.status(400).send({ error: 'Invalid issue key or URL' })
+      }
+      const fileId = String(req.params.fileId ?? '').trim()
+      if (!fileId) {
+        return reply.status(400).send({ error: 'Missing media file id' })
+      }
+
+      const result = await fetchIssueMediaBinary(parsedKey, fileId)
+      if (!result.ok) return sendJiraError(reply, result.error)
+
+      return reply
+        .header('Content-Type', result.contentType)
+        .header('Cache-Control', 'private, max-age=300')
+        .send(result.data)
+    },
+  )
+
   // GET /api/jira/stories/:issueKey — load editable CDPM issue
   fastify.get(
     '/stories/:issueKey',
@@ -668,18 +695,18 @@ export async function jiraRoutes(fastify: FastifyInstance): Promise<void> {
           ? Math.trunc(storyPointsRaw)
           : null
 
+      const status = fields.status as { name?: string } | undefined
+      const env = getEnv()
+      const baseUrl = env.JIRA_BASE_URL.replace(/\/$/, '')
+      const key = String(result.data.key ?? parsedKey)
+
       const acceptanceRaw = fields[STORY_CREATE_CONFIG.acceptanceCriteriaField]
       const acceptanceCriteria =
         typeof acceptanceRaw === 'string'
           ? acceptanceRaw
           : acceptanceRaw
-            ? adfToMarkdown(acceptanceRaw)
+            ? adfToMarkdown(acceptanceRaw, { issueKey: key })
             : ''
-
-      const status = fields.status as { name?: string } | undefined
-      const env = getEnv()
-      const baseUrl = env.JIRA_BASE_URL.replace(/\/$/, '')
-      const key = String(result.data.key ?? parsedKey)
 
       return reply.send({
         id: String(result.data.id ?? ''),
@@ -687,7 +714,7 @@ export async function jiraRoutes(fastify: FastifyInstance): Promise<void> {
         url: `${baseUrl}/browse/${key}`,
         statusName: String(status?.name ?? ''),
         summary: String(fields.summary ?? ''),
-        description: adfToMarkdown(fields.description),
+        description: adfToMarkdown(fields.description, { issueKey: key }),
         issueTypeId,
         issueTypeName: String(issuetype?.name ?? ''),
         componentIds,
