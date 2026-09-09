@@ -10,6 +10,8 @@ export const CDT_TICKETS_CONFIG = {
   prioridadField: 'customfield_10058',
   unField: 'customfield_10057',
   blField: 'customfield_10081',
+  /** Jira Cloud Sprint field (CDPM stories). */
+  sprintField: 'customfield_10020',
   pageSize: 100,
   maxTickets: 300,
 } as const

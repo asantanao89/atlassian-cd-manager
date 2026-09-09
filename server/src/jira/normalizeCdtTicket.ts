@@ -66,8 +66,8 @@ function linkedIssueKey(issue: unknown): string {
   return String((issue as Record<string, unknown>).key ?? '').trim()
 }
 
-export function extractLinkedWorkItemKey(issuelinks: unknown): string {
-  if (!Array.isArray(issuelinks)) return ''
+export function extractLinkedIssueKeys(issuelinks: unknown): string[] {
+  if (!Array.isArray(issuelinks)) return []
 
   const keys: string[] = []
   for (const link of issuelinks) {
@@ -79,7 +79,40 @@ export function extractLinkedWorkItemKey(issuelinks: unknown): string {
     if (outward) keys.push(outward)
   }
 
+  return [...new Set(keys)]
+}
+
+export function extractLinkedWorkItemKey(issuelinks: unknown): string {
+  const keys = extractLinkedIssueKeys(issuelinks)
   return keys.find((key) => key.startsWith('CDPM-')) ?? keys.find((key) => !key.startsWith('CDT-')) ?? ''
+}
+
+export function extractLinkedCdtKeys(issuelinks: unknown): string[] {
+  return extractLinkedIssueKeys(issuelinks).filter((key) => key.startsWith('CDT-'))
+}
+
+function parseSprintEntry(raw: unknown): { name: string; state: string } | null {
+  if (typeof raw === 'string') {
+    const name = raw.match(/name=([^,\]]+)/)?.[1]?.trim()
+    if (!name) return null
+    const state = raw.match(/state=([^,\]]+)/)?.[1]?.trim().toLowerCase() ?? ''
+    return { name, state }
+  }
+  if (!raw || typeof raw !== 'object') return null
+  const obj = raw as Record<string, unknown>
+  const name = typeof obj.name === 'string' ? obj.name.trim() : ''
+  if (!name) return null
+  const state = typeof obj.state === 'string' ? obj.state.trim().toLowerCase() : ''
+  return { name, state }
+}
+
+export function extractSprintName(raw: unknown): string {
+  const items = Array.isArray(raw) ? raw : raw != null ? [raw] : []
+  const sprints = items
+    .map(parseSprintEntry)
+    .filter((sprint): sprint is { name: string; state: string } => sprint != null)
+  const active = sprints.find((sprint) => sprint.state === 'active')
+  return active?.name ?? sprints.at(-1)?.name ?? ''
 }
 
 export function extractOptionValue(raw: unknown): string {

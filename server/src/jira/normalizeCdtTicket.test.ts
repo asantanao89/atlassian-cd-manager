@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   extractLinkedWorkItemKey,
+  extractLinkedCdtKeys,
   extractOptionValue,
   extractRequestTypeName,
+  extractSprintName,
   normalizeCdtTicket,
   normalizeCdtTicketDetails,
 } from './normalizeCdtTicket'
@@ -137,6 +139,42 @@ describe('normalizeCdtTicket', () => {
         },
       }),
     ).toMatchObject({ assigneeName: 'Alejandro Santana' })
+  })
+})
+
+describe('extractLinkedCdtKeys', () => {
+  it('returns CDT keys from inward and outward links', () => {
+    expect(
+      extractLinkedCdtKeys([
+        { inwardIssue: { key: 'CDT-5803' } },
+        { outwardIssue: { key: 'CDPM-23107' } },
+        { inwardIssue: { key: 'CDT-12' } },
+      ]),
+    ).toEqual(['CDT-5803', 'CDT-12'])
+  })
+})
+
+describe('extractSprintName', () => {
+  it('prefers the active sprint object', () => {
+    expect(
+      extractSprintName([
+        { name: 'Sprint 1', state: 'closed' },
+        { name: 'Sprint 2', state: 'active' },
+      ]),
+    ).toBe('Sprint 2')
+  })
+
+  it('parses the GreenHopper string form', () => {
+    expect(
+      extractSprintName(
+        'com.atlassian.greenhopper.service.sprint.Sprint@abc[id=12,name=CD Sprint 9,state=ACTIVE,endDate=]',
+      ),
+    ).toBe('CD Sprint 9')
+  })
+
+  it('returns empty string when missing', () => {
+    expect(extractSprintName(null)).toBe('')
+    expect(extractSprintName([])).toBe('')
   })
 })
 

@@ -10,6 +10,7 @@ import CreateStoryView from '../views/CreateStoryView.vue'
 import TicketsView from '../views/TicketsView.vue'
 import TicketsListView from '../views/TicketsListView.vue'
 import TicketsSummaryView from '../views/TicketsSummaryView.vue'
+import TicketsStoriesView from '../views/TicketsStoriesView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -71,6 +72,11 @@ const router = createRouter({
           path: 'resumen',
           name: 'tickets-summary',
           component: TicketsSummaryView,
+        },
+        {
+          path: 'historias',
+          name: 'tickets-stories',
+          component: TicketsStoriesView,
         },
       ],
     },

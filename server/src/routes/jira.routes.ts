@@ -3,7 +3,14 @@ import { getEnv } from '../env'
 import { getJiraClient } from '../jira/jiraClient'
 import { normalizeIssue, normalizeIssueWithWorklogs, normalizeWorklog } from '../jira/jiraNormalizer'
 import { CDT_TICKETS_CONFIG, CDT_TICKET_DETAIL_FIELDS } from '../jira/cdtTicketsConfig'
-import { normalizeCdtTicket, normalizeCdtTicketDetails, extractStatusName, type CdtTicket } from '../jira/normalizeCdtTicket'
+import {
+  normalizeCdtTicket,
+  normalizeCdtTicketDetails,
+  extractStatusName,
+  extractLinkedCdtKeys,
+  extractSprintName,
+  type CdtTicket,
+} from '../jira/normalizeCdtTicket'
 import { sendJiraError } from '../jira/jiraErrors'
 import {
   searchIssuesSchema,
@@ -50,7 +57,7 @@ interface JiraTransitionResponse {
   transitions?: Array<Record<string, unknown>>
 }
 
-function parseOpenPullRequests(payload: unknown): OpenPullRequest[] {
+function parseOpenPullRequests(payload: unknown, openOnly = true): OpenPullRequest[] {
   if (!payload || typeof payload !== 'object') return []
 
   const data = payload as Record<string, unknown>
@@ -66,7 +73,7 @@ function parseOpenPullRequests(payload: unknown): OpenPullRequest[] {
       const statusRaw = pr.status
       const status =
         typeof statusRaw === 'string' && statusRaw.trim().length > 0 ? statusRaw.toUpperCase() : null
-      if (status && status !== 'OPEN') continue
+      if (openOnly && status && status !== 'OPEN') continue
 
       const author = pr.author as Record<string, unknown> | null | undefined
       const repository = pr.destination as Record<string, unknown> | null | undefined
@@ -105,9 +112,10 @@ function parseOpenPullRequests(payload: unknown): OpenPullRequest[] {
   return Array.from(deduped.values())
 }
 
-async function fetchOpenPullRequestsForIssueId(
+async function fetchPullRequestsForIssueId(
   jira: ReturnType<typeof getJiraClient>,
   issueId: string,
+  openOnly = true,
 ): Promise<OpenPullRequest[]> {
   const applicationTypes = ['bitbucket', 'github', 'gitlab', 'stash']
   const allPullRequests: OpenPullRequest[] = []
@@ -117,7 +125,7 @@ async function fetchOpenPullRequestsForIssueId(
       `/rest/dev-status/latest/issue/detail?issueId=${encodeURIComponent(issueId)}&applicationType=${encodeURIComponent(applicationType)}&dataType=pullrequest`,
     )
     if (!result.ok) continue
-    allPullRequests.push(...parseOpenPullRequests(result.data))
+    allPullRequests.push(...parseOpenPullRequests(result.data, openOnly))
   }
 
   const deduped = new Map<string, OpenPullRequest>()
@@ -206,6 +214,64 @@ export async function jiraRoutes(fastify: FastifyInstance): Promise<void> {
     },
   )
 
+  // GET /api/jira/ticket-stories/:issueKey — CDPM story linked from a CDT ticket
+  fastify.get(
+    '/ticket-stories/:issueKey',
+    async (req: FastifyRequest<{ Params: { issueKey: string } }>, reply) => {
+      const parsedKey = parseJiraIssueKey(req.params.issueKey)
+      if (!parsedKey) return reply.status(400).send({ error: 'Invalid issue key or URL' })
+
+      const fields = [
+        'summary',
+        'status',
+        'issuelinks',
+        CDT_TICKETS_CONFIG.sprintField,
+      ].join(',')
+      const issueResult = await jira.get<Record<string, unknown>>(
+        `/rest/api/3/issue/${encodeURIComponent(parsedKey)}?fields=${fields}`,
+      )
+      if (!issueResult.ok) return sendJiraError(reply, issueResult.error)
+
+      const issue = issueResult.data
+      const issueFields = (issue.fields ?? {}) as Record<string, unknown>
+      const issueId = String(issue.id ?? '').trim()
+      const subtaskJql = `parent = ${parsedKey} ORDER BY key ASC`
+
+      const [pullRequests, subtasksResult] = await Promise.all([
+        issueId ? fetchPullRequestsForIssueId(jira, issueId, false) : Promise.resolve([]),
+        jira.post<{ issues?: unknown[] }>('/rest/api/3/search/jql', {
+          jql: subtaskJql,
+          maxResults: 100,
+          fields: ['summary', 'assignee', 'status', 'timetracking'],
+        }),
+      ])
+
+      if (!subtasksResult.ok) return sendJiraError(reply, subtasksResult.error)
+
+      const subtasks = (subtasksResult.data.issues ?? []).map((raw) => {
+        const normalized = normalizeIssue(raw)
+        return {
+          key: normalized.key,
+          summary: normalized.summary,
+          assigneeName: normalized.assigneeName ?? '',
+          statusName: normalized.statusName,
+          timeSpent: normalized.timetracking.timeSpent ?? '',
+          originalEstimate: normalized.timetracking.originalEstimate ?? '',
+        }
+      })
+
+      return reply.send({
+        key: String(issue.key ?? parsedKey),
+        summary: String(issueFields.summary ?? ''),
+        statusName: extractStatusName(issueFields.status),
+        ticketKeys: extractLinkedCdtKeys(issueFields.issuelinks),
+        sprintName: extractSprintName(issueFields[CDT_TICKETS_CONFIG.sprintField]),
+        pullRequests,
+        subtasks,
+      })
+    },
+  )
+
   // POST /api/jira/issues/search
   fastify.post('/issues/search', async (req: FastifyRequest, reply) => {
     const parsed = searchIssuesSchema.safeParse(req.body)
@@ -264,7 +330,7 @@ export async function jiraRoutes(fastify: FastifyInstance): Promise<void> {
       const issueId = String(issueResult.data.id ?? '').trim()
       if (!issueId) return reply.send({ pullRequests: [] })
 
-      return reply.send({ pullRequests: await fetchOpenPullRequestsForIssueId(jira, issueId) })
+      return reply.send({ pullRequests: await fetchPullRequestsForIssueId(jira, issueId) })
     },
   )
 

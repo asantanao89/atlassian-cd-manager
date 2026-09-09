@@ -19,6 +19,7 @@ import type {
   StoryParentOption,
   CdtTicketsResponse,
   CdtTicketDetails,
+  CdtTicketStoryDetails,
 } from '../types/jira'
 
 export interface SearchIssuesParams {
@@ -65,6 +66,11 @@ export const jiraApi = {
 
   getCdtTicket: (issueKey: string): Promise<CdtTicketDetails> =>
     httpClient.get<CdtTicketDetails>(`/api/jira/tickets/${encodeURIComponent(issueKey)}`),
+
+  getCdtTicketStory: (issueKey: string): Promise<CdtTicketStoryDetails> =>
+    httpClient.get<CdtTicketStoryDetails>(
+      `/api/jira/ticket-stories/${encodeURIComponent(issueKey)}`,
+    ),
 
   searchIssues: (params: SearchIssuesParams): Promise<SearchIssuesResponse> =>
     httpClient.post<SearchIssuesResponse>('/api/jira/issues/search', {

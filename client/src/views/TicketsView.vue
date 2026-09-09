@@ -7,6 +7,7 @@ const route = useRoute()
 const tabs = [
   { label: 'Lista', to: '/tickets/lista' },
   { label: 'Resumen', to: '/tickets/resumen' },
+  { label: 'Historias', to: '/tickets/historias' },
 ]
 
 const currentPath = computed(() => route.path)

@@ -65,6 +65,32 @@ export interface CdtTicketsResponse {
   total: number
 }
 
+export interface CdtTicketStory {
+  key: string
+  summary: string
+  statusName: string
+  ticketKeys: string[]
+}
+
+export interface CdtTicketStorySubtask {
+  key: string
+  summary: string
+  assigneeName: string
+  statusName: string
+  timeSpent: string
+  originalEstimate: string
+}
+
+export interface CdtTicketStoryDetails {
+  key: string
+  summary: string
+  statusName: string
+  ticketKeys: string[]
+  sprintName: string
+  pullRequests: JiraOpenPullRequest[]
+  subtasks: CdtTicketStorySubtask[]
+}
+
 export interface JiraIssueWithWorklogs extends JiraIssueSummary {
   worklogs: JiraWorklog[]
 }
