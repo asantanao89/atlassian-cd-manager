@@ -7,6 +7,9 @@ import BranchView from '../views/BranchView.vue'
 import PullRequestView from '../views/PullRequestView.vue'
 import PricingView from '../views/PricingView.vue'
 import CreateStoryView from '../views/CreateStoryView.vue'
+import TicketsView from '../views/TicketsView.vue'
+import TicketsListView from '../views/TicketsListView.vue'
+import TicketsSummaryView from '../views/TicketsSummaryView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -49,6 +52,27 @@ const router = createRouter({
     {
       path: '/create-story',
       redirect: '/stories',
+    },
+    {
+      path: '/tickets',
+      name: 'tickets',
+      component: TicketsView,
+      children: [
+        {
+          path: '',
+          redirect: '/tickets/lista',
+        },
+        {
+          path: 'lista',
+          name: 'tickets-list',
+          component: TicketsListView,
+        },
+        {
+          path: 'resumen',
+          name: 'tickets-summary',
+          component: TicketsSummaryView,
+        },
+      ],
     },
     {
       path: '/branch',

@@ -29,6 +29,13 @@ const route = useRoute()
           Historias
         </RouterLink>
         <RouterLink
+          to="/tickets"
+          class="px-3 py-1.5 rounded text-sm font-medium transition-colors"
+          :class="route.path.startsWith('/tickets') ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'"
+        >
+          Tickets
+        </RouterLink>
+        <RouterLink
           to="/branch"
           class="px-3 py-1.5 rounded text-sm font-medium transition-colors"
           :class="route.path.startsWith('/branch') ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'"

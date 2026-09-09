@@ -17,6 +17,8 @@ import type {
   JiraWorklog,
   StoryCreateOptions,
   StoryParentOption,
+  CdtTicketsResponse,
+  CdtTicketDetails,
 } from '../types/jira'
 
 export interface SearchIssuesParams {
@@ -57,6 +59,12 @@ export const jiraApi = {
     httpClient.get<JiraConnectionInfo>('/api/jira/connection-info'),
 
   getMe: (): Promise<JiraUser> => httpClient.get<JiraUser>('/api/jira/me'),
+
+  listCdtTickets: (): Promise<CdtTicketsResponse> =>
+    httpClient.get<CdtTicketsResponse>('/api/jira/tickets'),
+
+  getCdtTicket: (issueKey: string): Promise<CdtTicketDetails> =>
+    httpClient.get<CdtTicketDetails>(`/api/jira/tickets/${encodeURIComponent(issueKey)}`),
 
   searchIssues: (params: SearchIssuesParams): Promise<SearchIssuesResponse> =>
     httpClient.post<SearchIssuesResponse>('/api/jira/issues/search', {

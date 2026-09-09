@@ -67,11 +67,18 @@ export function issueStatusBadgeClass(statusName: string): string {
     return 'bg-blue-100 text-blue-700'
   }
 
+  if (value.includes('pendiente solicitante')) {
+    return 'bg-red-100 text-red-700'
+  }
+
   if (
     value.includes('por hacer')
     || value.includes('to do')
     || value === 'todo'
     || value.includes('open')
+    || value.includes('abierto')
+    || value.includes('waiting')
+    || value.includes('espera')
     || value.includes('pend')
   ) {
     return 'bg-amber-100 text-amber-700'

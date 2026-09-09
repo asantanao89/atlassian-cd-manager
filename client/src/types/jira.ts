@@ -35,6 +35,36 @@ export interface JiraIssueSummary {
   subtaskKeys: string[]
 }
 
+export interface CdtTicket {
+  id: string
+  key: string
+  linkedKey: string
+  summary: string
+  requestType: string
+  reporterName: string
+  created: string
+  statusName: string
+  assigneeName: string
+}
+
+export interface CdtTicketDetails extends CdtTicket {
+  area: string
+  departamento: string
+  categoriaCanalDigital: string
+  prioridad: string
+  un: string
+  labels: string
+  priority: string
+  bl: string
+  linkedStatus: string
+  description: string
+}
+
+export interface CdtTicketsResponse {
+  tickets: CdtTicket[]
+  total: number
+}
+
 export interface JiraIssueWithWorklogs extends JiraIssueSummary {
   worklogs: JiraWorklog[]
 }
