@@ -42,7 +42,7 @@ Crear, editar o clonar issues del proyecto **CDPM** (configuración fija en el s
 
 Listado de tickets abiertos del proyecto de Service Desk **CDT** (`statusCategory != Done`). Pestañas **Lista** (`/tickets/lista`), **Resumen** (`/tickets/resumen`) e **Historias** (`/tickets/historias`), como Tracking.
 
-- Lista: Created at (primera; ordenable asc/desc, desc por defecto), Key (enlace a Jira), Story (issue CDPM enlazado, si existe), Request type, Summary, Status (badge con el color del flujo), Assigned to, Details (popup con campos CDT y description)
+- Lista: icono de Request type, Created at (ordenable asc/desc, desc por defecto), Key (enlace a Jira), Story (issue CDPM enlazado, si existe), Summary, Status (badge con el color del flujo), Assigned to, Details (popup con campos CDT y description)
 - Filtros (sincronizados con la URL): texto por Key, Story y Assigned to; selectores de Request type y Status; checkboxes Sin historia, Asignados y Sin asignar; rango From/To sobre Created at
 - Accesos rápidos (entre filtros y tabla): Sin gestionar (sin asignar y sin story) y Mis tickets (asignados al usuario actual); al activar uno se limpian el resto de filtros; al pulsar de nuevo se desactivan
 - Resumen: total (sin enlace), y el resto de tarjetas enlazan a la lista con el filtro correspondiente (Incidencia incluye Incident; Soporte; sin historia; asignados / sin asignar; cada status; cada mes)

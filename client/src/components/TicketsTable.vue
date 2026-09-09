@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/vue-query'
 import { jiraApi } from '../api/jiraApi'
 import { useTicketsTableFilters, formatCreatedAt } from '../composables/useTicketsTableFilters'
 import TicketDetailsDialog from './TicketDetailsDialog.vue'
+import RequestTypeIcon from './RequestTypeIcon.vue'
 import type { CdtTicket } from '../types/jira'
 import { issueStatusBadgeClass } from '../utils/issueStatus'
 
@@ -321,6 +322,9 @@ function hideTooltip(): void {
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-gray-200 bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+              <th class="w-10 px-2 py-2 text-left font-medium">
+                <span class="sr-only">Tipo de petición</span>
+              </th>
               <th class="px-3 py-2 text-left font-medium" :aria-sort="createdSort === 'asc' ? 'ascending' : 'descending'">
                 <button
                   type="button"
@@ -341,7 +345,6 @@ function hideTooltip(): void {
               </th>
               <th class="px-3 py-2 text-left font-medium">Key</th>
               <th class="px-3 py-2 text-left font-medium">Story</th>
-              <th class="px-3 py-2 text-left font-medium">Request type</th>
               <th class="px-3 py-2 text-left font-medium">Summary</th>
               <th class="px-3 py-2 text-left font-medium">Status</th>
               <th class="px-3 py-2 text-left font-medium">Assigned to</th>
@@ -354,6 +357,18 @@ function hideTooltip(): void {
               :key="ticket.id"
               class="hover:bg-blue-50 transition-colors"
             >
+              <td class="px-2 py-2 whitespace-nowrap">
+                <span
+                  v-if="ticket.requestType"
+                  class="inline-flex"
+                  :aria-label="ticket.requestType"
+                  @mouseenter="showTooltip($event, ticket.requestType)"
+                  @mouseleave="hideTooltip"
+                >
+                  <RequestTypeIcon :name="ticket.requestType" />
+                </span>
+                <span v-else class="text-gray-400">—</span>
+              </td>
               <td class="px-3 py-2 text-gray-700 whitespace-nowrap">
                 {{ formatCreatedAt(ticket.created) || '—' }}
               </td>
@@ -381,9 +396,6 @@ function hideTooltip(): void {
                 </a>
                 <span v-else-if="ticket.linkedKey">{{ ticket.linkedKey }}</span>
                 <span v-else class="font-sans font-normal text-gray-400">—</span>
-              </td>
-              <td class="px-3 py-2 text-gray-700 whitespace-nowrap">
-                {{ ticket.requestType || '—' }}
               </td>
               <td
                 class="px-3 py-2 text-gray-800 whitespace-nowrap"
