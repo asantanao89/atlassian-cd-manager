@@ -2,6 +2,8 @@ import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { getEnv } from '../env'
 import { getJiraClient } from '../jira/jiraClient'
 import { normalizeIssue, normalizeIssueWithWorklogs, normalizeWorklog } from '../jira/jiraNormalizer'
+import { CDT_TICKETS_CONFIG, CDT_TICKET_DETAIL_FIELDS } from '../jira/cdtTicketsConfig'
+import { normalizeCdtTicket, normalizeCdtTicketDetails, extractStatusName, type CdtTicket } from '../jira/normalizeCdtTicket'
 import { sendJiraError } from '../jira/jiraErrors'
 import {
   searchIssuesSchema,
@@ -146,6 +148,63 @@ export async function jiraRoutes(fastify: FastifyInstance): Promise<void> {
       active: data.active,
     })
   })
+
+  // GET /api/jira/tickets — open CDT service-desk tickets
+  fastify.get('/tickets', async (_req, reply) => {
+    const tickets: CdtTicket[] = []
+    let nextPageToken: string | undefined
+
+    while (tickets.length < CDT_TICKETS_CONFIG.maxTickets) {
+      const body: Record<string, unknown> = {
+        jql: CDT_TICKETS_CONFIG.jql,
+        maxResults: Math.min(
+          CDT_TICKETS_CONFIG.pageSize,
+          CDT_TICKETS_CONFIG.maxTickets - tickets.length,
+        ),
+        fields: ['summary', 'reporter', 'assignee', 'issuelinks', 'created', 'status', CDT_TICKETS_CONFIG.requestTypeField],
+      }
+      if (nextPageToken) body.nextPageToken = nextPageToken
+
+      const result = await jira.post<{
+        issues?: unknown[]
+        nextPageToken?: string | null
+      }>('/rest/api/3/search/jql', body)
+      if (!result.ok) return sendJiraError(reply, result.error)
+
+      const page = result.data.issues ?? []
+      tickets.push(...page.map(normalizeCdtTicket))
+
+      const token = result.data.nextPageToken
+      if (!token || page.length === 0) break
+      nextPageToken = token
+    }
+
+    return reply.send({ tickets, total: tickets.length })
+  })
+
+  // GET /api/jira/tickets/:issueKey — CDT ticket detail for the popup
+  fastify.get(
+    '/tickets/:issueKey',
+    async (req: FastifyRequest<{ Params: { issueKey: string } }>, reply) => {
+      const parsedKey = parseJiraIssueKey(req.params.issueKey)
+      if (!parsedKey) return reply.status(400).send({ error: 'Invalid issue key or URL' })
+
+      const result = await jira.get<unknown>(
+        `/rest/api/3/issue/${encodeURIComponent(parsedKey)}?fields=${CDT_TICKET_DETAIL_FIELDS.join(',')}`,
+      )
+      if (!result.ok) return sendJiraError(reply, result.error)
+
+      const details = normalizeCdtTicketDetails(result.data)
+      if (details.linkedKey) {
+        const linked = await jira.get<{ fields?: { status?: unknown } }>(
+          `/rest/api/3/issue/${encodeURIComponent(details.linkedKey)}?fields=status`,
+        )
+        if (linked.ok) details.linkedStatus = extractStatusName(linked.data.fields?.status)
+      }
+
+      return reply.send(details)
+    },
+  )
 
   // POST /api/jira/issues/search
   fastify.post('/issues/search', async (req: FastifyRequest, reply) => {
