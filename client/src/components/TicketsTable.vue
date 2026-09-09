@@ -7,6 +7,7 @@ import TicketDetailsDialog from './TicketDetailsDialog.vue'
 import RequestTypeIcon from './RequestTypeIcon.vue'
 import type { CdtTicket } from '../types/jira'
 import { issueStatusBadgeClass } from '../utils/issueStatus'
+import { labelTagClass } from '../utils/labelTag'
 
 const props = defineProps<{
   tickets: CdtTicket[]
@@ -348,6 +349,7 @@ function hideTooltip(): void {
               <th class="px-3 py-2 text-left font-medium">Summary</th>
               <th class="px-3 py-2 text-left font-medium">Status</th>
               <th class="px-3 py-2 text-left font-medium">Assigned to</th>
+              <th class="px-3 py-2 text-left font-medium">Labels</th>
               <th class="px-3 py-2 text-left font-medium">Details</th>
             </tr>
           </thead>
@@ -425,6 +427,19 @@ function hideTooltip(): void {
                 >
                   {{ initialsFromName(ticket.assigneeName) }}
                 </span>
+                <span v-else class="text-gray-400">—</span>
+              </td>
+              <td class="px-3 py-2">
+                <div v-if="(ticket.labels ?? []).length > 0" class="flex flex-wrap gap-1">
+                  <span
+                    v-for="label in ticket.labels"
+                    :key="label"
+                    class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                    :class="labelTagClass(label)"
+                  >
+                    {{ label }}
+                  </span>
+                </div>
                 <span v-else class="text-gray-400">—</span>
               </td>
               <td class="px-3 py-2 whitespace-nowrap">

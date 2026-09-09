@@ -11,6 +11,7 @@ export interface CdtTicket {
   created: string
   statusName: string
   assigneeName: string
+  labels: string[]
 }
 
 export interface CdtTicketDetails extends CdtTicket {
@@ -19,7 +20,6 @@ export interface CdtTicketDetails extends CdtTicket {
   categoriaCanalDigital: string
   prioridad: string
   un: string
-  labels: string
   priority: string
   bl: string
   linkedStatus: string
@@ -126,9 +126,9 @@ export function extractOptionValue(raw: unknown): string {
   return ''
 }
 
-export function extractLabels(raw: unknown): string {
-  if (!Array.isArray(raw)) return ''
-  return raw.filter((label): label is string => typeof label === 'string' && label.trim().length > 0).join(', ')
+export function extractLabels(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  return raw.filter((label): label is string => typeof label === 'string' && label.trim().length > 0)
 }
 
 export function extractStatusName(raw: unknown): string {
@@ -153,6 +153,7 @@ export function normalizeCdtTicket(raw: unknown): CdtTicket {
     created: typeof fields.created === 'string' ? fields.created : '',
     statusName: extractStatusName(fields.status),
     assigneeName: assignee ? String(assignee.displayName ?? '') : '',
+    labels: extractLabels(fields.labels),
   }
 }
 
@@ -169,7 +170,6 @@ export function normalizeCdtTicketDetails(raw: unknown): CdtTicketDetails {
     categoriaCanalDigital: extractOptionValue(fields[cfg.categoriaCanalDigitalField]),
     prioridad: extractOptionValue(fields[cfg.prioridadField]),
     un: extractOptionValue(fields[cfg.unField]),
-    labels: extractLabels(fields.labels),
     priority: extractOptionValue(fields.priority),
     bl: extractOptionValue(fields[cfg.blField]),
     linkedStatus: '',

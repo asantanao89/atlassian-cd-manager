@@ -6,6 +6,7 @@ import { useEscapeToClose } from '../composables/useEscapeToClose'
 import { formatCreatedAt } from '../composables/useTicketsTableFilters'
 import { jiraApi } from '../api/jiraApi'
 import type { CdtTicket } from '../types/jira'
+import { labelTagClass } from '../utils/labelTag'
 
 marked.setOptions({ breaks: true, gfm: true })
 
@@ -143,7 +144,19 @@ function display(value: string | undefined): string {
 
               <div>
                 <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">Labels</dt>
-                <dd class="mt-0.5 text-gray-800">{{ display(details.labels) }}</dd>
+                <dd class="mt-0.5">
+                  <div v-if="details.labels.length > 0" class="flex flex-wrap gap-1">
+                    <span
+                      v-for="label in details.labels"
+                      :key="label"
+                      class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                      :class="labelTagClass(label)"
+                    >
+                      {{ label }}
+                    </span>
+                  </div>
+                  <span v-else class="text-gray-400">—</span>
+                </dd>
               </div>
               <div>
                 <dt class="text-xs font-medium uppercase tracking-wide text-gray-500">Priority</dt>

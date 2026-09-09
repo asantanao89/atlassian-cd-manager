@@ -45,6 +45,7 @@ export interface CdtTicket {
   created: string
   statusName: string
   assigneeName: string
+  labels: string[]
 }
 
 export interface CdtTicketDetails extends CdtTicket {
@@ -53,7 +54,6 @@ export interface CdtTicketDetails extends CdtTicket {
   categoriaCanalDigital: string
   prioridad: string
   un: string
-  labels: string
   priority: string
   bl: string
   linkedStatus: string

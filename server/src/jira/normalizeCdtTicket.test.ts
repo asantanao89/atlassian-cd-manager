@@ -61,6 +61,7 @@ describe('normalizeCdtTicket', () => {
       created: '',
       statusName: '',
       assigneeName: '',
+      labels: [],
     })
   })
 
@@ -81,6 +82,7 @@ describe('normalizeCdtTicket', () => {
       created: '',
       statusName: '',
       assigneeName: '',
+      labels: [],
     })
   })
 
@@ -126,6 +128,19 @@ describe('normalizeCdtTicket', () => {
         },
       }),
     ).toMatchObject({ statusName: 'Waiting for support' })
+  })
+
+  it('maps labels from Jira', () => {
+    expect(
+      normalizeCdtTicket({
+        id: '10006',
+        key: 'CDT-17',
+        fields: {
+          summary: 'Con labels',
+          labels: ['proshop', 'pim'],
+        },
+      }),
+    ).toMatchObject({ labels: ['proshop', 'pim'] })
   })
 
   it('maps assignee from Jira', () => {
@@ -242,7 +257,7 @@ describe('normalizeCdtTicketDetails', () => {
       categoriaCanalDigital: 'Dentalclick.fr',
       prioridad: 'Bloqueante (Me impide trabajar)',
       un: 'Dentalclick',
-      labels: 'proshop',
+      labels: ['proshop'],
       priority: 'Normal',
       bl: '🛑',
       description: 'Hola',

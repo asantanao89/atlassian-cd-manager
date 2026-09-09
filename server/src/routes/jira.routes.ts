@@ -169,7 +169,7 @@ export async function jiraRoutes(fastify: FastifyInstance): Promise<void> {
           CDT_TICKETS_CONFIG.pageSize,
           CDT_TICKETS_CONFIG.maxTickets - tickets.length,
         ),
-        fields: ['summary', 'reporter', 'assignee', 'issuelinks', 'created', 'status', CDT_TICKETS_CONFIG.requestTypeField],
+        fields: ['summary', 'reporter', 'assignee', 'issuelinks', 'created', 'status', 'labels', CDT_TICKETS_CONFIG.requestTypeField],
       }
       if (nextPageToken) body.nextPageToken = nextPageToken
 
