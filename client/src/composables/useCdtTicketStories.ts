@@ -8,7 +8,7 @@ async function fetchStoriesByKeys(keys: string[]): Promise<CdtTicketStory[]> {
   const uniqueKeys = [...new Set(keys.filter(Boolean))]
   if (uniqueKeys.length === 0) return []
 
-  const byKey = new Map<string, { key: string; summary: string; statusName: string }>()
+  const byKey = new Map<string, { key: string; summary: string; statusName: string; sprintName: string }>()
   let nextPageToken: string | null = null
   const jql = `key in (${uniqueKeys.join(',')}) ORDER BY updated DESC`
 
@@ -23,6 +23,7 @@ async function fetchStoriesByKeys(keys: string[]): Promise<CdtTicketStory[]> {
         key: issue.key,
         summary: issue.summary,
         statusName: issue.statusName,
+        sprintName: issue.sprintName ?? '',
       })
     }
     nextPageToken = result.nextPageToken
@@ -30,7 +31,7 @@ async function fetchStoriesByKeys(keys: string[]): Promise<CdtTicketStory[]> {
 
   return uniqueKeys
     .map((key) => byKey.get(key))
-    .filter((issue): issue is { key: string; summary: string; statusName: string } => issue != null)
+    .filter((issue): issue is { key: string; summary: string; statusName: string; sprintName: string } => issue != null)
     .map((issue) => ({ ...issue, ticketKeys: [] }))
 }
 

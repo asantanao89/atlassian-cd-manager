@@ -57,8 +57,9 @@ function closeDetails(): void {
         <thead>
           <tr class="border-b border-gray-200 bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
             <th class="px-3 py-2 text-left font-medium">Key</th>
-            <th class="px-3 py-2 text-left font-medium">Summary</th>
+            <th class="w-[700px] min-w-[700px] max-w-[700px] px-3 py-2 text-left font-medium">Summary</th>
             <th class="px-3 py-2 text-left font-medium">Status</th>
+            <th class="px-3 py-2 text-left font-medium">Sprint</th>
             <th class="px-3 py-2 text-left font-medium">Details</th>
           </tr>
         </thead>
@@ -80,7 +81,7 @@ function closeDetails(): void {
               </a>
               <span v-else>{{ story.key }}</span>
             </td>
-            <td class="px-3 py-2 text-gray-800">
+            <td class="w-[700px] min-w-[700px] max-w-[700px] px-3 py-2 text-gray-800 whitespace-normal break-words">
               {{ story.summary || '—' }}
             </td>
             <td class="px-3 py-2 whitespace-nowrap">
@@ -92,6 +93,9 @@ function closeDetails(): void {
                 {{ story.statusName }}
               </span>
               <span v-else class="text-gray-400">—</span>
+            </td>
+            <td class="px-3 py-2 text-gray-800 whitespace-nowrap">
+              {{ story.sprintName || '—' }}
             </td>
             <td class="px-3 py-2 whitespace-nowrap">
               <button

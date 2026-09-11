@@ -46,7 +46,7 @@ Listado de tickets abiertos del proyecto de Service Desk **CDT** (`statusCategor
 - Filtros (sincronizados con la URL): texto por Key, Story y Assigned to; selectores de Request type y Status; checkboxes Sin historia, Asignados y Sin asignar; rango From/To sobre Created at
 - Accesos rápidos (entre filtros y tabla): Sin gestionar (sin asignar y sin story), Asignados sin story y Mis tickets (asignados al usuario actual); al activar uno se limpian el resto de filtros; al pulsar de nuevo se desactivan
 - Resumen: total (sin enlace), y el resto de tarjetas enlazan a la lista con el filtro correspondiente (Incidencia incluye Incident; Soporte; sin historia; asignados / sin asignar; cada status; cada mes)
-- Historias: issues CDPM enlazados a tickets abiertos (Key, Summary, Status, Details). El popup muestra ticket, sprint, pull requests y subtareas (work, assignee, status)
+- Historias: issues CDPM enlazados a tickets abiertos (Key, Summary, Status, Sprint, Details). El popup muestra ticket, sprint, pull requests y subtareas (work, assignee, status)
 
 ### Branch (`/branch`)
 

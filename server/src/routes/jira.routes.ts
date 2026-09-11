@@ -40,6 +40,7 @@ const ISSUE_FIELDS = [
   'assignee',
   'worklog',
   'updated',
+  CDT_TICKETS_CONFIG.sprintField,
 ].join(',')
 
 interface OpenPullRequest {
@@ -280,7 +281,17 @@ export async function jiraRoutes(fastify: FastifyInstance): Promise<void> {
     }
     const { jql, maxResults, nextPageToken, includeWorklogs } = parsed.data
 
-    const fields = ['summary', 'status', 'issuetype', 'parent', 'subtasks', 'timetracking', 'assignee', 'updated']
+    const fields = [
+      'summary',
+      'status',
+      'issuetype',
+      'parent',
+      'subtasks',
+      'timetracking',
+      'assignee',
+      'updated',
+      CDT_TICKETS_CONFIG.sprintField,
+    ]
     if (includeWorklogs) fields.push('worklog')
 
     const body: Record<string, unknown> = {

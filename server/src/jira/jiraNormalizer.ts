@@ -1,4 +1,6 @@
 import { extractPlainTextFromAdf } from '../utils/adf'
+import { CDT_TICKETS_CONFIG } from './cdtTicketsConfig'
+import { extractSprintName } from './normalizeCdtTicket'
 
 export interface NormalizedIssue {
   id: string
@@ -11,6 +13,7 @@ export interface NormalizedIssue {
   parentSummary: string | null
   parentStatusName: string | null
   updated: string
+  sprintName: string
   timetracking: {
     originalEstimate?: string
     remainingEstimate?: string
@@ -70,6 +73,7 @@ export function normalizeIssue(raw: unknown): NormalizedIssue {
     parentSummary,
     parentStatusName,
     updated: String(fields.updated ?? ''),
+    sprintName: extractSprintName(fields[CDT_TICKETS_CONFIG.sprintField]),
     timetracking: {
       originalEstimate: tt.originalEstimate as string | undefined,
       remainingEstimate: tt.remainingEstimate as string | undefined,
