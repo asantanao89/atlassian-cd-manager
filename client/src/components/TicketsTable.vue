@@ -82,13 +82,6 @@ function issueBrowseUrl(issueKey: string): string {
   return `${jiraBaseUrl.value}/browse/${encodeURIComponent(issueKey)}`
 }
 
-const SUMMARY_MAX_LENGTH = 50
-
-function truncateSummary(summary: string): string {
-  if (summary.length <= SUMMARY_MAX_LENGTH) return summary
-  return `${summary.slice(0, SUMMARY_MAX_LENGTH)}...`
-}
-
 const selectedTicket = ref<CdtTicket | null>(null)
 
 function openDetails(ticket: CdtTicket): void {
@@ -156,14 +149,6 @@ function showTooltip(event: MouseEvent, text: string): void {
     left: `${Math.round(rect.left)}px`,
     top: `${Math.round(rect.bottom + 4)}px`,
   }
-}
-
-function showSummaryTooltip(event: MouseEvent, summary: string): void {
-  if (summary.length <= SUMMARY_MAX_LENGTH) {
-    hideTooltip()
-    return
-  }
-  showTooltip(event, summary)
 }
 
 function hideTooltip(): void {
@@ -361,7 +346,7 @@ function hideTooltip(): void {
               </th>
               <th class="px-3 py-2 text-left font-medium">Key</th>
               <th class="px-3 py-2 text-left font-medium">Story</th>
-              <th class="px-3 py-2 text-left font-medium">Summary</th>
+              <th class="w-[500px] min-w-[500px] max-w-[500px] px-3 py-2 text-left font-medium">Summary</th>
               <th class="px-3 py-2 text-left font-medium">Status</th>
               <th class="px-3 py-2 text-left font-medium">Assigned to</th>
               <th class="px-3 py-2 text-left font-medium">Labels</th>
@@ -414,12 +399,8 @@ function hideTooltip(): void {
                 <span v-else-if="ticket.linkedKey">{{ ticket.linkedKey }}</span>
                 <span v-else class="font-sans font-normal text-gray-400">—</span>
               </td>
-              <td
-                class="px-3 py-2 text-gray-800 whitespace-nowrap"
-                @mouseenter="showSummaryTooltip($event, ticket.summary)"
-                @mouseleave="hideTooltip"
-              >
-                {{ truncateSummary(ticket.summary) }}
+              <td class="w-[500px] min-w-[500px] max-w-[500px] px-3 py-2 text-gray-800 whitespace-normal break-words">
+                {{ ticket.summary }}
               </td>
               <td class="px-3 py-2 whitespace-nowrap">
                 <span
