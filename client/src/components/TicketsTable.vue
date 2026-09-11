@@ -32,8 +32,10 @@ const {
   hasActiveFilters,
   clearFilters,
   isUngestionedActive,
+  isAssignedWithoutStoryActive,
   isMyTicketsPreset,
   applyUngestioned,
+  applyAssignedWithoutStory,
   applyMyTickets,
   totalCount,
   filteredCount,
@@ -56,6 +58,10 @@ const isMyTicketsActive = computed(() => isMyTicketsPreset(myDisplayName.value))
 
 const ungestionedCount = computed(
   () => props.tickets.filter((ticket) => !ticket.assigneeName.trim() && !ticket.linkedKey.trim()).length,
+)
+
+const assignedWithoutStoryCount = computed(
+  () => props.tickets.filter((ticket) => ticket.assigneeName.trim().length > 0 && !ticket.linkedKey.trim()).length,
 )
 
 const myTicketsCount = computed(() => {
@@ -299,6 +305,15 @@ function hideTooltip(): void {
         >
           Sin gestionar
           <span :class="isUngestionedActive ? 'text-blue-100' : 'text-gray-500'">{{ ungestionedCount }}</span>
+        </button>
+        <button
+          type="button"
+          :class="[quickFilterButtonClass, isAssignedWithoutStoryActive ? quickFilterActiveClass : quickFilterIdleClass]"
+          :aria-pressed="isAssignedWithoutStoryActive"
+          @click="applyAssignedWithoutStory"
+        >
+          Asignados sin story
+          <span :class="isAssignedWithoutStoryActive ? 'text-blue-100' : 'text-gray-500'">{{ assignedWithoutStoryCount }}</span>
         </button>
         <button
           type="button"

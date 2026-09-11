@@ -204,6 +204,7 @@ export function useTicketsTableFilters(ticketsSource: MaybeRefOrGetter<CdtTicket
   }
 
   const isUngestionedActive = computed(() => matchesExactQuery({ noStory: '1', unassigned: '1' }))
+  const isAssignedWithoutStoryActive = computed(() => matchesExactQuery({ noStory: '1', assigned: '1' }))
 
   function isMyTicketsPreset(displayName: string): boolean {
     const mine = displayName.trim()
@@ -217,6 +218,14 @@ export function useTicketsTableFilters(ticketsSource: MaybeRefOrGetter<CdtTicket
     if (wasActive) return
     noStory.value = true
     unassignedOnly.value = true
+  }
+
+  function applyAssignedWithoutStory(): void {
+    const wasActive = isAssignedWithoutStoryActive.value
+    clearFilters()
+    if (wasActive) return
+    noStory.value = true
+    assignedOnly.value = true
   }
 
   function applyMyTickets(displayName: string): void {
@@ -245,8 +254,10 @@ export function useTicketsTableFilters(ticketsSource: MaybeRefOrGetter<CdtTicket
     hasActiveFilters,
     clearFilters,
     isUngestionedActive,
+    isAssignedWithoutStoryActive,
     isMyTicketsPreset,
     applyUngestioned,
+    applyAssignedWithoutStory,
     applyMyTickets,
     totalCount: computed(() => tickets.value.length),
     filteredCount: computed(() => filteredTickets.value.length),
