@@ -28,6 +28,8 @@ const {
   noStory,
   assignedOnly,
   unassignedOnly,
+  labelQuery,
+  labelOptions,
   filteredTickets,
   hasActiveFilters,
   clearFilters,
@@ -229,6 +231,16 @@ function hideTooltip(): void {
             <option value="">Status: todos</option>
             <option v-for="status in statusOptions" :key="status" :value="status">
               {{ status }}
+            </option>
+          </select>
+          <select
+            v-model="labelQuery"
+            class="min-w-[8rem] flex-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            aria-label="Filtrar por Label"
+          >
+            <option value="">Label: todos</option>
+            <option v-for="label in labelOptions" :key="label" :value="label">
+              {{ label }}
             </option>
           </select>
           <input

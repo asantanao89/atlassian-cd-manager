@@ -48,6 +48,12 @@ function matchesStatus(value: string, query: string): boolean {
   return value.trim().toLowerCase() === query
 }
 
+function matchesLabel(labels: string[], query: string): boolean {
+  if (!query) return true
+  const expected = query.trim().toLowerCase()
+  return labels.some((label) => label.trim().toLowerCase() === expected)
+}
+
 function compactQuery(query: Record<string, string>): Record<string, string> {
   return Object.fromEntries(Object.entries(query).filter(([, value]) => value.length > 0))
 }
@@ -89,6 +95,7 @@ export function useTicketsTableFilters(ticketsSource: MaybeRefOrGetter<CdtTicket
   const noStory = ref(false)
   const assignedOnly = ref(false)
   const unassignedOnly = ref(false)
+  const labelQuery = ref('')
 
   const tickets = computed(() => toValue(ticketsSource))
 
@@ -106,6 +113,13 @@ export function useTicketsTableFilters(ticketsSource: MaybeRefOrGetter<CdtTicket
     ),
   )
 
+  const labelOptions = computed(() =>
+    optionsWithSelected(
+      tickets.value.flatMap((ticket) => ticket.labels ?? []),
+      labelQuery.value,
+    ),
+  )
+
   function applyRouteQuery(): void {
     const query = route.query
     keyQuery.value = firstQueryValue(query.key)
@@ -118,6 +132,7 @@ export function useTicketsTableFilters(ticketsSource: MaybeRefOrGetter<CdtTicket
     noStory.value = firstQueryValue(query.noStory) === '1'
     assignedOnly.value = firstQueryValue(query.assigned) === '1'
     unassignedOnly.value = firstQueryValue(query.unassigned) === '1'
+    labelQuery.value = firstQueryValue(query.label)
   }
 
   function currentQuery(): Record<string, string> {
@@ -132,13 +147,14 @@ export function useTicketsTableFilters(ticketsSource: MaybeRefOrGetter<CdtTicket
       noStory: noStory.value ? '1' : '',
       assigned: assignedOnly.value ? '1' : '',
       unassigned: unassignedOnly.value ? '1' : '',
+      label: labelQuery.value.trim(),
     })
   }
 
   watch(() => route.query, applyRouteQuery, { immediate: true })
 
   watch(
-    [keyQuery, linkedKeyQuery, requestTypeQuery, statusQuery, assigneeQuery, createdFrom, createdTo, noStory, assignedOnly, unassignedOnly],
+    [keyQuery, linkedKeyQuery, requestTypeQuery, statusQuery, assigneeQuery, createdFrom, createdTo, noStory, assignedOnly, unassignedOnly, labelQuery],
     () => {
       const nextQuery = currentQuery()
       if (serializeQuery(nextQuery) === serializeQuery(route.query)) return
@@ -157,6 +173,7 @@ export function useTicketsTableFilters(ticketsSource: MaybeRefOrGetter<CdtTicket
     const withoutStory = noStory.value
     const onlyAssigned = assignedOnly.value
     const onlyUnassigned = unassignedOnly.value
+    const label = labelQuery.value.trim()
 
     return tickets.value.filter(
       (ticket) =>
@@ -166,6 +183,7 @@ export function useTicketsTableFilters(ticketsSource: MaybeRefOrGetter<CdtTicket
         && matchesStatus(ticket.statusName, status)
         && matchesQuery(ticket.assigneeName, assignee)
         && ticketCreatedInRange(ticket.created, from, to)
+        && matchesLabel(ticket.labels ?? [], label)
         && (!withoutStory || !ticket.linkedKey.trim())
         && (!onlyAssigned || ticket.assigneeName.trim().length > 0)
         && (!onlyUnassigned || !ticket.assigneeName.trim()),
@@ -183,7 +201,8 @@ export function useTicketsTableFilters(ticketsSource: MaybeRefOrGetter<CdtTicket
       || createdTo.value.length > 0
       || noStory.value
       || assignedOnly.value
-      || unassignedOnly.value,
+      || unassignedOnly.value
+      || labelQuery.value.trim().length > 0,
   )
 
   function clearFilters(): void {
@@ -197,6 +216,7 @@ export function useTicketsTableFilters(ticketsSource: MaybeRefOrGetter<CdtTicket
     noStory.value = false
     assignedOnly.value = false
     unassignedOnly.value = false
+    labelQuery.value = ''
   }
 
   function matchesExactQuery(expected: Record<string, string>): boolean {
@@ -250,6 +270,8 @@ export function useTicketsTableFilters(ticketsSource: MaybeRefOrGetter<CdtTicket
     noStory,
     assignedOnly,
     unassignedOnly,
+    labelQuery,
+    labelOptions,
     filteredTickets,
     hasActiveFilters,
     clearFilters,
