@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/vue-query'
 import { jiraApi } from '../api/jiraApi'
 import type { CdtTicketStory } from '../types/jira'
 import { issueStatusBadgeClass } from '../utils/issueStatus'
+import { labelTagClass } from '../utils/labelTag'
 import TicketStoryDetailsDialog from './TicketStoryDetailsDialog.vue'
 
 const props = defineProps<{
@@ -57,9 +58,10 @@ function closeDetails(): void {
         <thead>
           <tr class="border-b border-gray-200 bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
             <th class="px-3 py-2 text-left font-medium">Key</th>
-            <th class="w-[700px] min-w-[700px] max-w-[700px] px-3 py-2 text-left font-medium">Summary</th>
+            <th class="w-[600px] min-w-[600px] max-w-[600px] px-3 py-2 text-left font-medium">Summary</th>
             <th class="px-3 py-2 text-left font-medium">Status</th>
             <th class="px-3 py-2 text-left font-medium">Sprint</th>
+            <th class="px-3 py-2 text-left font-medium">Componentes</th>
             <th class="px-3 py-2 text-left font-medium">Details</th>
           </tr>
         </thead>
@@ -81,7 +83,7 @@ function closeDetails(): void {
               </a>
               <span v-else>{{ story.key }}</span>
             </td>
-            <td class="w-[700px] min-w-[700px] max-w-[700px] px-3 py-2 text-gray-800 whitespace-normal break-words">
+            <td class="w-[600px] min-w-[600px] max-w-[600px] px-3 py-2 text-gray-800 whitespace-normal break-words">
               {{ story.summary || '—' }}
             </td>
             <td class="px-3 py-2 whitespace-nowrap">
@@ -96,6 +98,19 @@ function closeDetails(): void {
             </td>
             <td class="px-3 py-2 text-gray-800 whitespace-nowrap">
               {{ story.sprintName || '—' }}
+            </td>
+            <td class="px-3 py-2">
+              <div v-if="(story.components ?? []).length > 0" class="flex flex-wrap gap-1">
+                <span
+                  v-for="component in story.components"
+                  :key="component"
+                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                  :class="labelTagClass(component)"
+                >
+                  {{ component }}
+                </span>
+              </div>
+              <span v-else class="text-gray-400">—</span>
             </td>
             <td class="px-3 py-2 whitespace-nowrap">
               <button

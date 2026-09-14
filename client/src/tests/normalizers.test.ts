@@ -73,6 +73,7 @@ describe('normalizeIssueResponse', () => {
     expect(issue.parentSummary).toBeNull()
     expect(issue.parentStatusName).toBeNull()
     expect(issue.sprintName).toBe('')
+    expect(issue.components).toEqual([])
     expect(issue.subtaskKeys).toEqual([])
   })
 })

@@ -32,6 +32,7 @@ export interface JiraIssueSummary {
   parentStatusName: string | null
   updated: string
   sprintName: string
+  components: string[]
   timetracking: JiraTimeTracking
   subtaskKeys: string[]
 }
@@ -71,6 +72,7 @@ export interface CdtTicketStory {
   summary: string
   statusName: string
   sprintName: string
+  components: string[]
   ticketKeys: string[]
 }
 

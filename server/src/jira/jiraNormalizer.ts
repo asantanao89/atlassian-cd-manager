@@ -14,6 +14,7 @@ export interface NormalizedIssue {
   parentStatusName: string | null
   updated: string
   sprintName: string
+  components: string[]
   timetracking: {
     originalEstimate?: string
     remainingEstimate?: string
@@ -61,6 +62,13 @@ export function normalizeIssue(raw: unknown): NormalizedIssue {
   const status = fields.status as Record<string, unknown> | undefined
   const issuetype = fields.issuetype as Record<string, unknown> | undefined
   const subtasks = (fields.subtasks ?? []) as Array<Record<string, unknown>>
+  const componentsRaw = Array.isArray(fields.components) ? fields.components : []
+  const components = componentsRaw
+    .map((component) => {
+      if (!component || typeof component !== 'object') return ''
+      return String((component as { name?: unknown }).name ?? '').trim()
+    })
+    .filter(Boolean)
 
   return {
     id: String(r.id ?? ''),
@@ -74,6 +82,7 @@ export function normalizeIssue(raw: unknown): NormalizedIssue {
     parentStatusName,
     updated: String(fields.updated ?? ''),
     sprintName: extractSprintName(fields[CDT_TICKETS_CONFIG.sprintField]),
+    components,
     timetracking: {
       originalEstimate: tt.originalEstimate as string | undefined,
       remainingEstimate: tt.remainingEstimate as string | undefined,

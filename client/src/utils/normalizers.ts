@@ -17,6 +17,7 @@ export function normalizeIssueResponse(raw: Partial<JiraIssueSummary>): JiraIssu
     parentStatusName: raw.parentStatusName ?? null,
     updated: raw.updated ?? '',
     sprintName: raw.sprintName ?? '',
+    components: raw.components ?? [],
     timetracking: raw.timetracking ?? {},
     subtaskKeys: raw.subtaskKeys ?? [],
   }

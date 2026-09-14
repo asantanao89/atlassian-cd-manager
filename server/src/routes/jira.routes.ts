@@ -40,6 +40,7 @@ const ISSUE_FIELDS = [
   'assignee',
   'worklog',
   'updated',
+  'components',
   CDT_TICKETS_CONFIG.sprintField,
 ].join(',')
 
@@ -290,6 +291,7 @@ export async function jiraRoutes(fastify: FastifyInstance): Promise<void> {
       'timetracking',
       'assignee',
       'updated',
+      'components',
       CDT_TICKETS_CONFIG.sprintField,
     ]
     if (includeWorklogs) fields.push('worklog')
