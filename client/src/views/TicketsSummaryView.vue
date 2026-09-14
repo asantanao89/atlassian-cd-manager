@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import ConnectionStatus from '../components/ConnectionStatus.vue'
+import TicketsSummaryBarChart, {
+  type TicketsSummaryBarItem,
+} from '../components/TicketsSummaryBarChart.vue'
 import { useCdtOpenTickets } from '../composables/useCdtOpenTickets'
 import { issueStatusBadgeClass } from '../utils/issueStatus'
+import { labelTagClass } from '../utils/labelTag'
 
 const { tickets, isLoading, errorMessage, refetch } = useCdtOpenTickets()
 
@@ -15,6 +19,7 @@ const summary = computed(() => {
   let unassigned = 0
   const statusCounts = new Map<string, number>()
   const monthCounts = new Map<string, { label: string; count: number }>()
+  const labelCounts = new Map<string, number>()
 
   for (const ticket of rows) {
     const requestType = ticket.requestType.trim().toLowerCase()
@@ -35,39 +40,76 @@ const summary = computed(() => {
         existing.count += 1
       } else {
         monthCounts.set(sortKey, {
-          label: created.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }),
+          label: created.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).replace(/^./, (char) => char.toUpperCase()),
           count: 1,
         })
       }
     }
+
+    for (const label of ticket.labels ?? []) {
+      const name = label.trim()
+      if (!name) continue
+      labelCounts.set(name, (labelCounts.get(name) ?? 0) + 1)
+    }
   }
 
-  const byStatus = [...statusCounts.entries()]
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es'))
-    .map(([name, count]) => ({ name, count }))
+  const byAssignment: TicketsSummaryBarItem[] = [
+    {
+      key: 'assigned',
+      label: 'Asignados',
+      count: assigned,
+      to: ticketsListTo({ assigned: '1' }),
+    },
+    {
+      key: 'unassigned',
+      label: 'Sin asignar',
+      count: unassigned,
+      to: ticketsListTo({ unassigned: '1' }),
+    },
+  ]
 
-  const byMonth = [...monthCounts.entries()]
+  const byStatus: TicketsSummaryBarItem[] = [...statusCounts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es'))
+    .map(([name, count]) => ({
+      key: name,
+      label: name,
+      count,
+      to: ticketsListTo({ status: name }),
+      tagClass: issueStatusBadgeClass(name),
+    }))
+
+  const byMonth: TicketsSummaryBarItem[] = [...monthCounts.entries()]
     .sort((a, b) => b[0].localeCompare(a[0]))
     .map(([sortKey, item]) => {
       const [year, month] = sortKey.split('-').map(Number)
       const lastDay = String(new Date(year, month, 0).getDate()).padStart(2, '0')
       return {
-        ...item,
-        sortKey,
-        from: `${sortKey}-01`,
-        to: `${sortKey}-${lastDay}`,
+        key: sortKey,
+        label: item.label,
+        count: item.count,
+        to: ticketsListTo({ from: `${sortKey}-01`, to: `${sortKey}-${lastDay}` }),
       }
     })
+
+  const byLabel: TicketsSummaryBarItem[] = [...labelCounts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es'))
+    .map(([name, count]) => ({
+      key: name,
+      label: name,
+      count,
+      to: ticketsListTo({ label: name }),
+      tagClass: labelTagClass(name),
+    }))
 
   return {
     total: rows.length,
     incidencia,
     soporte,
     withoutStory,
-    assigned,
-    unassigned,
+    byAssignment,
     byStatus,
     byMonth,
+    byLabel,
   }
 })
 
@@ -116,56 +158,12 @@ const cardLinkClass = `${cardClass} block transition-colors hover:border-blue-30
         </RouterLink>
       </div>
 
-      <section class="space-y-2">
-        <h2 class="text-sm font-semibold text-gray-700">Por asignación</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <RouterLink :to="ticketsListTo({ assigned: '1' })" :class="cardLinkClass">
-            <p class="text-xs text-gray-500">Asignados</p>
-            <p class="text-2xl font-semibold text-gray-800">{{ summary.assigned }}</p>
-          </RouterLink>
-          <RouterLink :to="ticketsListTo({ unassigned: '1' })" :class="cardLinkClass">
-            <p class="text-xs text-gray-500">Sin asignar</p>
-            <p class="text-2xl font-semibold text-gray-800">{{ summary.unassigned }}</p>
-          </RouterLink>
-        </div>
-      </section>
-
-      <section class="space-y-2">
-        <h2 class="text-sm font-semibold text-gray-700">Por status</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <RouterLink
-            v-for="item in summary.byStatus"
-            :key="item.name"
-            :to="ticketsListTo({ status: item.name })"
-            :class="cardLinkClass"
-          >
-            <p class="text-xs text-gray-500">
-              <span
-                class="inline-flex rounded px-1.5 py-0.5 font-medium"
-                :class="issueStatusBadgeClass(item.name)"
-              >
-                {{ item.name }}
-              </span>
-            </p>
-            <p class="mt-1 text-2xl font-semibold text-gray-800">{{ item.count }}</p>
-          </RouterLink>
-        </div>
-      </section>
-
-      <section class="space-y-2">
-        <h2 class="text-sm font-semibold text-gray-700">Por mes</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <RouterLink
-            v-for="item in summary.byMonth"
-            :key="item.sortKey"
-            :to="ticketsListTo({ from: item.from, to: item.to })"
-            :class="cardLinkClass"
-          >
-            <p class="text-xs text-gray-500 capitalize">{{ item.label }}</p>
-            <p class="text-2xl font-semibold text-gray-800">{{ item.count }}</p>
-          </RouterLink>
-        </div>
-      </section>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <TicketsSummaryBarChart title="Por asignación" :items="summary.byAssignment" />
+        <TicketsSummaryBarChart title="Por status" :items="summary.byStatus" />
+        <TicketsSummaryBarChart title="Por mes" :items="summary.byMonth" />
+        <TicketsSummaryBarChart title="Por label" :items="summary.byLabel" />
+      </div>
     </template>
   </div>
 </template>
