@@ -1,18 +1,11 @@
 import { computed, ref, watch, type MaybeRefOrGetter, toValue } from 'vue'
 import { useRoute, useRouter, type LocationQuery } from 'vue-router'
 import type { CdtTicket } from '../types/jira'
+import { matchesRequestType } from '../utils/requestTypeIcons'
 
 function matchesQuery(value: string, query: string): boolean {
   if (!query) return true
   return value.toLowerCase().includes(query)
-}
-
-function matchesRequestType(value: string, query: string): boolean {
-  if (!query) return true
-  const normalizedValue = value.toLowerCase()
-  const normalizedQuery = query.toLowerCase()
-  if (normalizedValue.includes(normalizedQuery)) return true
-  return normalizedQuery === 'incidencia' && normalizedValue === 'incident'
 }
 
 function ticketCreatedInRange(iso: string, from: string, to: string): boolean {
