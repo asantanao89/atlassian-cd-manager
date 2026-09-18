@@ -30,9 +30,13 @@ export interface JiraIssueSummary {
   parentKey: string | null
   parentSummary: string | null
   parentStatusName: string | null
+  parentStatusCategoryKey: string | null
+  parentStatusColorName: string | null
+  parentIssueType: string | null
   updated: string
   sprintName: string
   components: string[]
+  labels: string[]
   timetracking: JiraTimeTracking
   subtaskKeys: string[]
 }
@@ -108,6 +112,21 @@ export interface JiraOpenPullRequest {
   targetBranch: string | null
   repository: string | null
   author: string | null
+}
+
+export interface PendingProductionStory {
+  key: string
+  summary: string
+  statusName: string
+  parentKey: string | null
+  parentSummary: string | null
+  parentStatusName: string | null
+  parentStatusCategoryKey: string | null
+  parentStatusColorName: string | null
+  parentIssueType: string | null
+  pullRequests: JiraOpenPullRequest[]
+  branchCount: number
+  commitCount: number
 }
 
 export interface JiraIssueTransition {

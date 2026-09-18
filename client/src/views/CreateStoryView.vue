@@ -724,7 +724,7 @@ const saveContinueLabel = computed(() => {
 </script>
 
 <template>
-  <div class="max-w-screen-xl mx-auto px-4 py-6 space-y-6">
+  <div class="space-y-6">
     <div class="flex items-center justify-between gap-4">
       <div class="flex flex-wrap items-center gap-3">
         <h1 class="text-lg font-semibold text-gray-800">{{ pageTitle }}</h1>

@@ -7,6 +7,8 @@ import BranchView from '../views/BranchView.vue'
 import PullRequestView from '../views/PullRequestView.vue'
 import PricingView from '../views/PricingView.vue'
 import CreateStoryView from '../views/CreateStoryView.vue'
+import StoriesView from '../views/StoriesView.vue'
+import StoriesPendingProductionView from '../views/StoriesPendingProductionView.vue'
 import TicketsView from '../views/TicketsView.vue'
 import TicketsListView from '../views/TicketsListView.vue'
 import TicketsSummaryView from '../views/TicketsSummaryView.vue'
@@ -48,11 +50,27 @@ const router = createRouter({
     {
       path: '/stories',
       name: 'stories',
-      component: CreateStoryView,
+      component: StoriesView,
+      children: [
+        {
+          path: '',
+          redirect: '/stories/creacion',
+        },
+        {
+          path: 'creacion',
+          name: 'stories-create',
+          component: CreateStoryView,
+        },
+        {
+          path: 'pendiente-produccion',
+          name: 'stories-pending-production',
+          component: StoriesPendingProductionView,
+        },
+      ],
     },
     {
       path: '/create-story',
-      redirect: '/stories',
+      redirect: '/stories/creacion',
     },
     {
       path: '/tickets',

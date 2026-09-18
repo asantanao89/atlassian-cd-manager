@@ -15,9 +15,13 @@ export function normalizeIssueResponse(raw: Partial<JiraIssueSummary>): JiraIssu
     parentKey: raw.parentKey ?? null,
     parentSummary: raw.parentSummary ?? null,
     parentStatusName: raw.parentStatusName ?? null,
+    parentStatusCategoryKey: raw.parentStatusCategoryKey ?? null,
+    parentStatusColorName: raw.parentStatusColorName ?? null,
+    parentIssueType: raw.parentIssueType ?? null,
     updated: raw.updated ?? '',
     sprintName: raw.sprintName ?? '',
     components: raw.components ?? [],
+    labels: raw.labels ?? [],
     timetracking: raw.timetracking ?? {},
     subtaskKeys: raw.subtaskKeys ?? [],
   }

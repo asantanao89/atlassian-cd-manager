@@ -27,6 +27,7 @@ import { parseJiraIssueKey } from '../jira/parseIssueKey'
 import { buildFieldBackupCommentMarkdown } from '../jira/buildFieldBackupComment'
 import { fetchIssueMediaBinary } from '../jira/resolveIssueMedia'
 import { adfToMarkdown, buildAdfComment, markdownToAdf } from '../utils/adf'
+import { getBitbucketClient } from '../bitbucket/bitbucketClient'
 
 const ADJUST_ESTIMATE_VALUES = new Set(['auto', 'leave', 'new', 'manual'])
 
@@ -41,6 +42,7 @@ const ISSUE_FIELDS = [
   'worklog',
   'updated',
   'components',
+  'labels',
   CDT_TICKETS_CONFIG.sprintField,
 ].join(',')
 
@@ -57,6 +59,50 @@ interface OpenPullRequest {
 
 interface JiraTransitionResponse {
   transitions?: Array<Record<string, unknown>>
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function asNonEmptyString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
+}
+
+function nestedName(value: unknown): string | null {
+  const direct = asNonEmptyString(value)
+  if (direct) return direct
+  const record = asRecord(value)
+  return record ? asNonEmptyString(record.name) ?? asNonEmptyString(record.full_name) : null
+}
+
+function repositoryNameFromUrl(url: string | null): string | null {
+  if (!url) return null
+  const match = url.match(/(?:bitbucket\.org|github\.com|gitlab\.com)\/([^/]+\/[^/]+)/i)
+  return match ? match[1] : null
+}
+
+function isMachineRepositoryName(name: string): boolean {
+  return /\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}/i.test(name)
+}
+
+function humanRepositoryName(...candidates: Array<string | null | undefined>): string | null {
+  for (const candidate of candidates) {
+    const value = candidate?.trim()
+    if (value && !isMachineRepositoryName(value)) return value
+  }
+  return null
+}
+
+function repositorySlugFromNode(node: Record<string, unknown> | null): string | null {
+  if (!node) return null
+  return humanRepositoryName(repositoryNameFromUrl(asNonEmptyString(node.url)), nestedName(node))
+}
+
+function pullRequestDedupKey(pr: OpenPullRequest): string {
+  return `${pr.id}::${pr.url ?? ''}::${pr.repository ?? ''}`
 }
 
 function parseOpenPullRequests(payload: unknown, openOnly = true): OpenPullRequest[] {
@@ -77,9 +123,12 @@ function parseOpenPullRequests(payload: unknown, openOnly = true): OpenPullReque
         typeof statusRaw === 'string' && statusRaw.trim().length > 0 ? statusRaw.toUpperCase() : null
       if (openOnly && status && status !== 'OPEN') continue
 
-      const author = pr.author as Record<string, unknown> | null | undefined
-      const repository = pr.destination as Record<string, unknown> | null | undefined
-      const source = pr.source as Record<string, unknown> | null | undefined
+      const author = asRecord(pr.author)
+      const destination = asRecord(pr.destination)
+      const source = asRecord(pr.source)
+      const destinationRepo = asRecord(destination?.repository)
+      const sourceRepo = asRecord(source?.repository)
+      const url = asNonEmptyString(pr.url)
 
       const idValue = pr.id ?? pr.url ?? pr.name ?? pr.title
       const id = String(idValue ?? '').trim()
@@ -88,30 +137,68 @@ function parseOpenPullRequests(payload: unknown, openOnly = true): OpenPullReque
       openPullRequests.push({
         id,
         title: String(pr.name ?? pr.title ?? id),
-        url: typeof pr.url === 'string' && pr.url.trim().length > 0 ? pr.url : null,
+        url,
         state: status,
-        sourceBranch:
-          typeof source?.branch === 'string' && source.branch.trim().length > 0 ? source.branch : null,
-        targetBranch:
-          typeof repository?.branch === 'string' && repository.branch.trim().length > 0
-            ? repository.branch
-            : null,
+        sourceBranch: nestedName(source?.branch),
+        targetBranch: nestedName(destination?.branch),
         repository:
-          typeof repository?.name === 'string' && repository.name.trim().length > 0
-            ? repository.name
-            : null,
-        author:
-          typeof author?.name === 'string' && author.name.trim().length > 0 ? author.name : null,
+          humanRepositoryName(
+            repositorySlugFromNode(destinationRepo),
+            repositorySlugFromNode(sourceRepo),
+            repositoryNameFromUrl(asNonEmptyString(destination?.url)),
+            repositoryNameFromUrl(asNonEmptyString(source?.url)),
+            repositoryNameFromUrl(url),
+            nestedName(destination?.name),
+            nestedName(source?.name),
+          ) ??
+          nestedName(destinationRepo) ??
+          nestedName(sourceRepo) ??
+          repositoryNameFromUrl(url),
+        author: nestedName(author),
       })
     }
   }
 
   const deduped = new Map<string, OpenPullRequest>()
   for (const pr of openPullRequests) {
-    deduped.set(pr.id, pr)
+    deduped.set(pullRequestDedupKey(pr), pr)
   }
 
   return Array.from(deduped.values())
+}
+
+const bitbucketRepoSlugCache = new Map<string, string>()
+
+async function resolveMachineRepositoryNames(pullRequests: OpenPullRequest[]): Promise<void> {
+  const machineNames = [
+    ...new Set(
+      pullRequests
+        .map((pr) => pr.repository)
+        .filter((name): name is string => Boolean(name && isMachineRepositoryName(name))),
+    ),
+  ]
+  if (machineNames.length === 0) return
+
+  await Promise.all(
+    machineNames.map(async (name) => {
+      if (bitbucketRepoSlugCache.has(name)) return
+      const parts = name.match(
+        /\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}/gi,
+      )
+      if (!parts || parts.length < 2) return
+      const result = await getBitbucketClient().get<{ full_name?: string }>(
+        `/repositories/${encodeURIComponent(parts[0])}/${encodeURIComponent(parts[1])}`,
+      )
+      const slug = result.ok ? result.data.full_name?.trim() : ''
+      if (slug) bitbucketRepoSlugCache.set(name, slug)
+    }),
+  )
+
+  for (const pullRequest of pullRequests) {
+    if (!pullRequest.repository || !isMachineRepositoryName(pullRequest.repository)) continue
+    const slug = bitbucketRepoSlugCache.get(pullRequest.repository)
+    if (slug) pullRequest.repository = slug
+  }
 }
 
 async function fetchPullRequestsForIssueId(
@@ -120,19 +207,120 @@ async function fetchPullRequestsForIssueId(
   openOnly = true,
 ): Promise<OpenPullRequest[]> {
   const applicationTypes = ['bitbucket', 'github', 'gitlab', 'stash']
-  const allPullRequests: OpenPullRequest[] = []
+  const results = await Promise.all(
+    applicationTypes.map((applicationType) =>
+      jira.get<Record<string, unknown>>(
+        `/rest/dev-status/latest/issue/detail?issueId=${encodeURIComponent(issueId)}&applicationType=${encodeURIComponent(applicationType)}&dataType=pullrequest`,
+      ),
+    ),
+  )
 
-  for (const applicationType of applicationTypes) {
-    const result = await jira.get<Record<string, unknown>>(
-      `/rest/dev-status/latest/issue/detail?issueId=${encodeURIComponent(issueId)}&applicationType=${encodeURIComponent(applicationType)}&dataType=pullrequest`,
-    )
+  const allPullRequests: OpenPullRequest[] = []
+  for (const result of results) {
     if (!result.ok) continue
     allPullRequests.push(...parseOpenPullRequests(result.data, openOnly))
   }
 
+  await resolveMachineRepositoryNames(allPullRequests)
+
   const deduped = new Map<string, OpenPullRequest>()
-  for (const pr of allPullRequests) deduped.set(pr.id, pr)
+  for (const pr of allPullRequests) deduped.set(pullRequestDedupKey(pr), pr)
   return Array.from(deduped.values())
+}
+
+function summaryCount(value: unknown): number {
+  if (!value || typeof value !== 'object') return 0
+  const overall = (value as { overall?: { count?: unknown } }).overall
+  const count = Number(overall?.count ?? 0)
+  return Number.isFinite(count) && count > 0 ? count : 0
+}
+
+async function fetchDevStatusSummary(
+  jira: ReturnType<typeof getJiraClient>,
+  issueId: string,
+): Promise<{ branchCount: number; commitCount: number }> {
+  const result = await jira.get<Record<string, unknown>>(
+    `/rest/dev-status/latest/issue/summary?issueId=${encodeURIComponent(issueId)}`,
+  )
+  if (!result.ok) return { branchCount: 0, commitCount: 0 }
+  const summary = (result.data.summary ?? null) as Record<string, unknown> | null
+  return {
+    branchCount: summaryCount(summary?.branch),
+    commitCount: summaryCount(summary?.repository),
+  }
+}
+
+interface ParentStatusFields {
+  summary: string | null
+  statusName: string | null
+  statusCategoryKey: string | null
+  statusColorName: string | null
+  issueType: string | null
+}
+
+async function fetchParentStatusByKeys(
+  jira: ReturnType<typeof getJiraClient>,
+  parentKeys: string[],
+): Promise<Map<string, ParentStatusFields>> {
+  const uniqueKeys = [...new Set(parentKeys.map((key) => key.trim().toUpperCase()).filter(Boolean))]
+  const parents = new Map<string, ParentStatusFields>()
+  if (uniqueKeys.length === 0) return parents
+
+  for (let index = 0; index < uniqueKeys.length; index += 50) {
+    const chunk = uniqueKeys.slice(index, index + 50)
+    const result = await jira.post<{
+      issues?: Array<{
+        key?: string
+        fields?: {
+          summary?: string
+          status?: {
+            name?: string
+            statusCategory?: { key?: string; colorName?: string }
+          }
+          issuetype?: { name?: string }
+        }
+      }>
+    }>('/rest/api/3/search/jql', {
+      jql: `key in (${chunk.join(',')})`,
+      maxResults: chunk.length,
+      fields: ['summary', 'status', 'issuetype'],
+    })
+    if (!result.ok) continue
+
+    for (const issue of result.data.issues ?? []) {
+      const key = String(issue.key ?? '').toUpperCase()
+      if (!key) continue
+      const status = issue.fields?.status
+      const category = status?.statusCategory
+      parents.set(key, {
+        summary: issue.fields?.summary?.trim() || null,
+        statusName: status?.name?.trim() || null,
+        statusCategoryKey: category?.key?.trim() || null,
+        statusColorName: category?.colorName?.trim() || null,
+        issueType: issue.fields?.issuetype?.name?.trim() || null,
+      })
+    }
+  }
+
+  return parents
+}
+
+async function mapPool<T, R>(items: T[], limit: number, mapper: (item: T) => Promise<R>): Promise<R[]> {
+  if (items.length === 0) return []
+  const results: R[] = new Array(items.length)
+  let nextIndex = 0
+
+  async function worker(): Promise<void> {
+    while (nextIndex < items.length) {
+      const index = nextIndex
+      nextIndex += 1
+      results[index] = await mapper(items[index])
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker())
+  await Promise.all(workers)
+  return results
 }
 
 export async function jiraRoutes(fastify: FastifyInstance): Promise<void> {
@@ -292,6 +480,7 @@ export async function jiraRoutes(fastify: FastifyInstance): Promise<void> {
       'assignee',
       'updated',
       'components',
+      'labels',
       CDT_TICKETS_CONFIG.sprintField,
     ]
     if (includeWorklogs) fields.push('worklog')
@@ -346,6 +535,77 @@ export async function jiraRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.send({ pullRequests: await fetchPullRequestsForIssueId(jira, issueId) })
     },
   )
+
+  // GET /api/jira/stories/pending-production — CDPM stories in "Listo Producción"
+  fastify.get('/stories/pending-production', async (_req, reply) => {
+    const jql = `project = ${STORY_CREATE_CONFIG.projectKey} AND issuetype = Historia AND status = "Listo Producción" ORDER BY updated DESC`
+    const issues: ReturnType<typeof normalizeIssue>[] = []
+    let nextPageToken: string | undefined
+
+    while (issues.length < 100) {
+      const body: Record<string, unknown> = {
+        jql,
+        maxResults: Math.min(50, 100 - issues.length),
+        fields: ['summary', 'status', 'parent'],
+      }
+      if (nextPageToken) body.nextPageToken = nextPageToken
+
+      const result = await jira.post<{ issues?: unknown[]; nextPageToken?: string | null }>(
+        '/rest/api/3/search/jql',
+        body,
+      )
+      if (!result.ok) return sendJiraError(reply, result.error)
+
+      const page = (result.data.issues ?? []).map(normalizeIssue)
+      issues.push(...page)
+      nextPageToken = result.data.nextPageToken ?? undefined
+      if (!nextPageToken || page.length === 0) break
+    }
+
+    const parentStatuses = await fetchParentStatusByKeys(
+      jira,
+      issues
+        .filter((issue) => issue.parentKey && (!issue.parentStatusColorName || !issue.parentStatusCategoryKey))
+        .map((issue) => issue.parentKey as string),
+    )
+    for (const issue of issues) {
+      if (!issue.parentKey) continue
+      const parent = parentStatuses.get(issue.parentKey.toUpperCase())
+      if (!parent) continue
+      issue.parentSummary = issue.parentSummary ?? parent.summary
+      issue.parentStatusName = parent.statusName ?? issue.parentStatusName
+      issue.parentStatusCategoryKey = parent.statusCategoryKey ?? issue.parentStatusCategoryKey
+      issue.parentStatusColorName = parent.statusColorName ?? issue.parentStatusColorName
+      issue.parentIssueType = parent.issueType ?? issue.parentIssueType
+    }
+
+    const stories = await mapPool(issues, 4, async (issue) => {
+      const issueId = issue.id.trim()
+      const [pullRequests, summary] = issueId
+        ? await Promise.all([
+            fetchPullRequestsForIssueId(jira, issueId, false),
+            fetchDevStatusSummary(jira, issueId),
+          ])
+        : [[], { branchCount: 0, commitCount: 0 }] as const
+
+      return {
+        key: issue.key,
+        summary: issue.summary,
+        statusName: issue.statusName,
+        parentKey: issue.parentKey,
+        parentSummary: issue.parentSummary,
+        parentStatusName: issue.parentStatusName,
+        parentStatusCategoryKey: issue.parentStatusCategoryKey,
+        parentStatusColorName: issue.parentStatusColorName,
+        parentIssueType: issue.parentIssueType,
+        pullRequests,
+        branchCount: summary.branchCount,
+        commitCount: summary.commitCount,
+      }
+    })
+
+    return reply.send({ stories })
+  })
 
   // GET /api/jira/issues/:issueKey/transitions
   fastify.get(

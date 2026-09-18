@@ -20,6 +20,7 @@ import type {
   CdtTicketsResponse,
   CdtTicketDetails,
   CdtTicketStoryDetails,
+  PendingProductionStory,
 } from '../types/jira'
 
 export interface SearchIssuesParams {
@@ -146,6 +147,9 @@ export const jiraApi = {
 
   getStoryCreateOptions: (): Promise<StoryCreateOptions> =>
     httpClient.get<StoryCreateOptions>('/api/jira/stories/create-options'),
+
+  listPendingProductionStories: (): Promise<{ stories: PendingProductionStory[] }> =>
+    httpClient.get<{ stories: PendingProductionStory[] }>('/api/jira/stories/pending-production'),
 
   listStoryParents: (params?: {
     includeDone?: boolean

@@ -12,9 +12,13 @@ export interface NormalizedIssue {
   parentKey: string | null
   parentSummary: string | null
   parentStatusName: string | null
+  parentStatusCategoryKey: string | null
+  parentStatusColorName: string | null
+  parentIssueType: string | null
   updated: string
   sprintName: string
   components: string[]
+  labels: string[]
   timetracking: {
     originalEstimate?: string
     remainingEstimate?: string
@@ -59,6 +63,20 @@ export function normalizeIssue(raw: unknown): NormalizedIssue {
     parentStatus && typeof parentStatus.name === 'string' && parentStatus.name.trim().length > 0
       ? parentStatus.name
       : null
+  const parentStatusCategory = parentStatus?.statusCategory as Record<string, unknown> | undefined
+  const parentStatusCategoryKey =
+    parentStatusCategory && typeof parentStatusCategory.key === 'string' && parentStatusCategory.key.trim().length > 0
+      ? parentStatusCategory.key
+      : null
+  const parentStatusColorName =
+    parentStatusCategory && typeof parentStatusCategory.colorName === 'string' && parentStatusCategory.colorName.trim().length > 0
+      ? parentStatusCategory.colorName
+      : null
+  const parentIssueTypeRaw = parentFields?.issuetype as Record<string, unknown> | undefined
+  const parentIssueType =
+    parentIssueTypeRaw && typeof parentIssueTypeRaw.name === 'string' && parentIssueTypeRaw.name.trim().length > 0
+      ? parentIssueTypeRaw.name
+      : null
   const status = fields.status as Record<string, unknown> | undefined
   const issuetype = fields.issuetype as Record<string, unknown> | undefined
   const subtasks = (fields.subtasks ?? []) as Array<Record<string, unknown>>
@@ -69,6 +87,8 @@ export function normalizeIssue(raw: unknown): NormalizedIssue {
       return String((component as { name?: unknown }).name ?? '').trim()
     })
     .filter(Boolean)
+  const labelsRaw = Array.isArray(fields.labels) ? fields.labels : []
+  const labels = labelsRaw.map((label) => String(label ?? '').trim()).filter(Boolean)
 
   return {
     id: String(r.id ?? ''),
@@ -80,9 +100,13 @@ export function normalizeIssue(raw: unknown): NormalizedIssue {
     parentKey: parent ? String(parent.key ?? '') : null,
     parentSummary,
     parentStatusName,
+    parentStatusCategoryKey,
+    parentStatusColorName,
+    parentIssueType,
     updated: String(fields.updated ?? ''),
     sprintName: extractSprintName(fields[CDT_TICKETS_CONFIG.sprintField]),
     components,
+    labels,
     timetracking: {
       originalEstimate: tt.originalEstimate as string | undefined,
       remainingEstimate: tt.remainingEstimate as string | undefined,
