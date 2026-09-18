@@ -8,7 +8,6 @@ import { parseJiraDurationToSeconds } from '../utils/jiraDuration'
 import { usePendingChangesStore } from '../stores/pendingChanges.store'
 import type { PendingChange } from '../types/pendingChange'
 import { useEscapeToClose } from '../composables/useEscapeToClose'
-import ConnectionStatus from '../components/ConnectionStatus.vue'
 import TrackingSummaryCards from '../components/TrackingSummaryCards.vue'
 import DailyHoursChartBlock from '../components/DailyHoursChartBlock.vue'
 import MyOpenIssuesTable from '../components/MyOpenIssuesTable.vue'
@@ -431,10 +430,7 @@ function confirmQuickLogTask(): void {
 <template>
   <div class="max-w-screen-xl mx-auto px-4 py-6 space-y-4">
     <!-- Header row -->
-    <div class="flex items-center justify-between">
-      <h1 class="text-lg font-semibold text-gray-800">Dashboard</h1>
-      <ConnectionStatus />
-    </div>
+    <h1 class="text-lg font-semibold text-gray-800">Dashboard</h1>
 
     <TrackingSummaryCards title="Mi seguimiento" />
 
