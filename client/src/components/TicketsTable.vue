@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { jiraApi } from '../api/jiraApi'
 import { useTicketsTableFilters, formatCreatedAt } from '../composables/useTicketsTableFilters'
-import { formatOpenDuration, openDurationChipClass } from '../utils/formatOpenDuration'
+import { formatOpenDuration, openDurationChipClass, OPEN_DURATION_RANGES } from '../utils/formatOpenDuration'
 import TicketDetailsDialog from './TicketDetailsDialog.vue'
 import RequestTypeIcon from './RequestTypeIcon.vue'
 import type { CdtTicket } from '../types/jira'
@@ -26,6 +26,7 @@ const {
   assigneeQuery,
   createdFrom,
   createdTo,
+  openedQuery,
   noStory,
   assignedOnly,
   unassignedOnly,
@@ -200,6 +201,16 @@ function hideTooltip(): void {
               aria-label="Created to"
             />
           </label>
+          <select
+            v-model="openedQuery"
+            class="min-w-[8rem] flex-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            aria-label="Filtrar por Opened"
+          >
+            <option value="">Opened: todos</option>
+            <option v-for="range in OPEN_DURATION_RANGES" :key="range.key" :value="range.key">
+              {{ range.label }}
+            </option>
+          </select>
           <input
             v-model="keyQuery"
             type="search"

@@ -2,6 +2,7 @@ import { computed, ref, watch, type MaybeRefOrGetter, toValue } from 'vue'
 import { useRoute, useRouter, type LocationQuery } from 'vue-router'
 import type { CdtTicket } from '../types/jira'
 import { matchesRequestType } from '../utils/requestTypeIcons'
+import { isOpenDurationRange, openDurationRange, type OpenDurationRange } from '../utils/formatOpenDuration'
 
 function matchesQuery(value: string, query: string): boolean {
   if (!query) return true
@@ -47,6 +48,15 @@ function matchesLabel(labels: string[], query: string): boolean {
   return labels.some((label) => label.trim().toLowerCase() === expected)
 }
 
+function parseOpenedQuery(value: string): OpenDurationRange | '' {
+  return isOpenDurationRange(value) ? value : ''
+}
+
+function matchesOpenedRange(iso: string, query: string): boolean {
+  if (!query) return true
+  return openDurationRange(iso) === query
+}
+
 function compactQuery(query: Record<string, string>): Record<string, string> {
   return Object.fromEntries(Object.entries(query).filter(([, value]) => value.length > 0))
 }
@@ -85,6 +95,7 @@ export function useTicketsTableFilters(ticketsSource: MaybeRefOrGetter<CdtTicket
   const assigneeQuery = ref('')
   const createdFrom = ref('')
   const createdTo = ref('')
+  const openedQuery = ref('')
   const noStory = ref(false)
   const assignedOnly = ref(false)
   const unassignedOnly = ref(false)
@@ -122,6 +133,7 @@ export function useTicketsTableFilters(ticketsSource: MaybeRefOrGetter<CdtTicket
     assigneeQuery.value = firstQueryValue(query.assignee)
     createdFrom.value = firstQueryValue(query.from)
     createdTo.value = firstQueryValue(query.to)
+    openedQuery.value = parseOpenedQuery(firstQueryValue(query.opened))
     noStory.value = firstQueryValue(query.noStory) === '1'
     assignedOnly.value = firstQueryValue(query.assigned) === '1'
     unassignedOnly.value = firstQueryValue(query.unassigned) === '1'
@@ -137,6 +149,7 @@ export function useTicketsTableFilters(ticketsSource: MaybeRefOrGetter<CdtTicket
       assignee: assigneeQuery.value.trim(),
       from: createdFrom.value,
       to: createdTo.value,
+      opened: openedQuery.value,
       noStory: noStory.value ? '1' : '',
       assigned: assignedOnly.value ? '1' : '',
       unassigned: unassignedOnly.value ? '1' : '',
@@ -147,7 +160,7 @@ export function useTicketsTableFilters(ticketsSource: MaybeRefOrGetter<CdtTicket
   watch(() => route.query, applyRouteQuery, { immediate: true })
 
   watch(
-    [keyQuery, linkedKeyQuery, requestTypeQuery, statusQuery, assigneeQuery, createdFrom, createdTo, noStory, assignedOnly, unassignedOnly, labelQuery],
+    [keyQuery, linkedKeyQuery, requestTypeQuery, statusQuery, assigneeQuery, createdFrom, createdTo, openedQuery, noStory, assignedOnly, unassignedOnly, labelQuery],
     () => {
       const nextQuery = currentQuery()
       if (serializeQuery(nextQuery) === serializeQuery(route.query)) return
@@ -163,6 +176,7 @@ export function useTicketsTableFilters(ticketsSource: MaybeRefOrGetter<CdtTicket
     const assignee = assigneeQuery.value.trim().toLowerCase()
     const from = createdFrom.value
     const to = createdTo.value
+    const opened = openedQuery.value
     const withoutStory = noStory.value
     const onlyAssigned = assignedOnly.value
     const onlyUnassigned = unassignedOnly.value
@@ -176,6 +190,7 @@ export function useTicketsTableFilters(ticketsSource: MaybeRefOrGetter<CdtTicket
         && matchesStatus(ticket.statusName, status)
         && matchesQuery(ticket.assigneeName, assignee)
         && ticketCreatedInRange(ticket.created, from, to)
+        && matchesOpenedRange(ticket.created, opened)
         && matchesLabel(ticket.labels ?? [], label)
         && (!withoutStory || !ticket.linkedKey.trim())
         && (!onlyAssigned || ticket.assigneeName.trim().length > 0)
@@ -192,6 +207,7 @@ export function useTicketsTableFilters(ticketsSource: MaybeRefOrGetter<CdtTicket
       || assigneeQuery.value.trim().length > 0
       || createdFrom.value.length > 0
       || createdTo.value.length > 0
+      || openedQuery.value.length > 0
       || noStory.value
       || assignedOnly.value
       || unassignedOnly.value
@@ -206,6 +222,7 @@ export function useTicketsTableFilters(ticketsSource: MaybeRefOrGetter<CdtTicket
     assigneeQuery.value = ''
     createdFrom.value = ''
     createdTo.value = ''
+    openedQuery.value = ''
     noStory.value = false
     assignedOnly.value = false
     unassignedOnly.value = false
@@ -260,6 +277,7 @@ export function useTicketsTableFilters(ticketsSource: MaybeRefOrGetter<CdtTicket
     assigneeQuery,
     createdFrom,
     createdTo,
+    openedQuery,
     noStory,
     assignedOnly,
     unassignedOnly,

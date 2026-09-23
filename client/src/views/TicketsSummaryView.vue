@@ -7,6 +7,11 @@ import { useCdtOpenTickets } from '../composables/useCdtOpenTickets'
 import { issueStatusBadgeClass } from '../utils/issueStatus'
 import { labelTagClass } from '../utils/labelTag'
 import { requestTypeIconKind } from '../utils/requestTypeIcons'
+import {
+  OPEN_DURATION_RANGES,
+  openDurationRange,
+  openDurationRangeChipClass,
+} from '../utils/formatOpenDuration'
 
 const { tickets, isLoading, errorMessage, refetch } = useCdtOpenTickets()
 
@@ -21,6 +26,7 @@ const summary = computed(() => {
   const statusCounts = new Map<string, number>()
   const monthCounts = new Map<string, { label: string; count: number }>()
   const labelCounts = new Map<string, number>()
+  const openedCounts = new Map<string, number>()
 
   for (const ticket of rows) {
     const requestTypeKind = requestTypeIconKind(ticket.requestType)
@@ -56,6 +62,9 @@ const summary = computed(() => {
       if (!name) continue
       labelCounts.set(name, (labelCounts.get(name) ?? 0) + 1)
     }
+
+    const opened = openDurationRange(ticket.created)
+    if (opened) openedCounts.set(opened, (openedCounts.get(opened) ?? 0) + 1)
   }
 
   const otherTypes: TicketsSummaryBarItem[] = [...otherTypeCounts.entries()]
@@ -131,6 +140,14 @@ const summary = computed(() => {
       tagClass: labelTagClass(name),
     }))
 
+  const byOpened: TicketsSummaryBarItem[] = OPEN_DURATION_RANGES.map((range) => ({
+    key: range.key,
+    label: range.label,
+    count: openedCounts.get(range.key) ?? 0,
+    to: ticketsListTo({ opened: range.key }),
+    tagClass: openDurationRangeChipClass(range.key),
+  }))
+
   return {
     total: rows.length,
     incidencia,
@@ -142,6 +159,7 @@ const summary = computed(() => {
     byStatus,
     byMonth,
     byLabel,
+    byOpened,
   }
 })
 
@@ -201,6 +219,7 @@ const cardLinkClass = `${cardClass} block transition-colors hover:border-blue-30
         <TicketsSummaryBarChart title="Por asignación" :items="summary.byAssignment" />
         <TicketsSummaryBarChart title="Por status" :items="summary.byStatus" />
         <TicketsSummaryBarChart title="Por mes" :items="summary.byMonth" />
+        <TicketsSummaryBarChart title="Por opened" :items="summary.byOpened" />
         <TicketsSummaryBarChart title="Por label" :items="summary.byLabel" />
       </div>
     </template>

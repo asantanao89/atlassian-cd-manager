@@ -3,11 +3,28 @@ const MS_PER_DAY = 24 * MS_PER_HOUR
 const MS_PER_WEEK = 7 * MS_PER_DAY
 
 export type OpenDurationTone = 'good' | 'warning' | 'attention'
+export type OpenDurationRange = 'recent' | 'aging' | 'old'
+
+export const OPEN_DURATION_RANGES: ReadonlyArray<{
+  key: OpenDurationRange
+  tone: OpenDurationTone
+  label: string
+}> = [
+  { key: 'recent', tone: 'good', label: 'Reciente' },
+  { key: 'aging', tone: 'warning', label: '1 semana – 1 mes' },
+  { key: 'old', tone: 'attention', label: 'Más de 1 mes' },
+]
 
 const OPEN_DURATION_CHIP_CLASS: Record<OpenDurationTone, string> = {
   good: 'bg-green-100 text-green-700',
   warning: 'bg-yellow-100 text-yellow-800',
   attention: 'bg-red-100 text-red-700',
+}
+
+const RANGE_BY_TONE: Record<OpenDurationTone, OpenDurationRange> = {
+  good: 'recent',
+  warning: 'aging',
+  attention: 'old',
 }
 
 function addCalendarMonth(date: Date): Date {
@@ -62,4 +79,18 @@ export function openDurationTone(iso: string, now = Date.now()): OpenDurationTon
 export function openDurationChipClass(iso: string, now = Date.now()): string | null {
   const tone = openDurationTone(iso, now)
   return tone ? OPEN_DURATION_CHIP_CLASS[tone] : null
+}
+
+export function openDurationRange(iso: string, now = Date.now()): OpenDurationRange | null {
+  const tone = openDurationTone(iso, now)
+  return tone ? RANGE_BY_TONE[tone] : null
+}
+
+export function isOpenDurationRange(value: string): value is OpenDurationRange {
+  return OPEN_DURATION_RANGES.some((range) => range.key === value)
+}
+
+export function openDurationRangeChipClass(range: OpenDurationRange): string {
+  const match = OPEN_DURATION_RANGES.find((item) => item.key === range)
+  return match ? OPEN_DURATION_CHIP_CLASS[match.tone] : ''
 }

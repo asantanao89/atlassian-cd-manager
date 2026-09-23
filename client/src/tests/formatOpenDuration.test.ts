@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatOpenDuration, openDurationTone } from '../utils/formatOpenDuration'
+import { formatOpenDuration, openDurationRange, openDurationTone } from '../utils/formatOpenDuration'
 
 const at = (year: number, month: number, day: number, hour = 0): number =>
   new Date(year, month, day, hour).getTime()
@@ -46,5 +46,13 @@ describe('openDurationTone', () => {
   it('is attention after one month', () => {
     expect(openDurationTone(new Date(2026, 0, 1).toISOString(), at(2026, 1, 1, 1))).toBe('attention')
     expect(openDurationTone(new Date(2026, 0, 1).toISOString(), at(2026, 2, 1))).toBe('attention')
+  })
+})
+
+describe('openDurationRange', () => {
+  it('maps tones to opened summary ranges', () => {
+    expect(openDurationRange(new Date(2026, 0, 1).toISOString(), at(2026, 0, 3))).toBe('recent')
+    expect(openDurationRange(new Date(2026, 0, 1).toISOString(), at(2026, 0, 15))).toBe('aging')
+    expect(openDurationRange(new Date(2026, 0, 1).toISOString(), at(2026, 2, 1))).toBe('old')
   })
 })
