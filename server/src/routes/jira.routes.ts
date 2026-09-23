@@ -18,6 +18,7 @@ import {
   updateWorklogSchema,
   updateTimetrackingSchema,
   transitionIssueSchema,
+  updateIssueComponentsSchema,
   createStorySchema,
   updateStorySchema,
   listStoryParentsSchema,
@@ -796,6 +797,54 @@ export async function jiraRoutes(fastify: FastifyInstance): Promise<void> {
       )
       if (!result.ok) return sendJiraError(reply, result.error)
       return reply.send({ success: true })
+    },
+  )
+
+  // PUT /api/jira/issues/:issueKey/components
+  fastify.put(
+    '/issues/:issueKey/components',
+    async (
+      req: FastifyRequest<{ Params: { issueKey: string }; Body: { componentIds?: string[] } }>,
+      reply,
+    ) => {
+      const parsedKey = parseJiraIssueKey(req.params.issueKey)
+      if (!parsedKey) return reply.status(400).send({ error: 'Invalid issue key or URL' })
+
+      const parsed = updateIssueComponentsSchema.safeParse(req.body)
+      if (!parsed.success) {
+        return reply.status(400).send({ error: 'Invalid request', details: parsed.error.errors })
+      }
+
+      const invalidComponent = parsed.data.componentIds.find(
+        (id) => !STORY_CREATE_CONFIG.allowedComponentIds.has(id),
+      )
+      if (invalidComponent) {
+        return reply.status(400).send({ error: `Invalid componentId: ${invalidComponent}` })
+      }
+
+      const result = await jira.put<unknown>(
+        `/rest/api/3/issue/${encodeURIComponent(parsedKey)}`,
+        { fields: { components: parsed.data.componentIds.map((id) => ({ id })) } },
+      )
+      if (!result.ok) return sendJiraError(reply, result.error)
+
+      const issueResult = await jira.get<Record<string, unknown>>(
+        `/rest/api/3/issue/${encodeURIComponent(parsedKey)}?fields=components`,
+      )
+      if (!issueResult.ok) {
+        return reply.send({ success: true as const, components: [] as string[] })
+      }
+
+      const fields = (issueResult.data.fields ?? {}) as Record<string, unknown>
+      const componentsRaw = Array.isArray(fields.components) ? fields.components : []
+      const components = componentsRaw
+        .map((component) => {
+          if (!component || typeof component !== 'object') return ''
+          return String((component as { name?: unknown }).name ?? '').trim()
+        })
+        .filter(Boolean)
+
+      return reply.send({ success: true as const, components })
     },
   )
 

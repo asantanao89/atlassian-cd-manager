@@ -76,6 +76,13 @@ export const transitionIssueSchema = z.object({
   transitionId: z.string().min(1, 'transitionId is required'),
 })
 
+export const updateIssueComponentsSchema = z.object({
+  componentIds: z
+    .array(z.string().trim().min(1))
+    .min(1, 'At least one component is required')
+    .transform((ids) => [...new Set(ids)]),
+})
+
 export const createStorySchema = z.object({
   summary: z.string().trim().min(1, 'summary is required'),
   issueTypeId: z.string().trim().min(1, 'issueTypeId is required'),

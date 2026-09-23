@@ -12,6 +12,8 @@ import type {
   JiraOpenPullRequest,
   JiraIssueTransitionsResponse,
   UpdateIssueStatusParams,
+  UpdateIssueComponentsParams,
+  UpdateIssueComponentsResponse,
   PullRequestBranchList,
   JiraUser,
   JiraWorklog,
@@ -110,6 +112,15 @@ export const jiraApi = {
   ): Promise<{ success: true; statusName: string }> =>
     httpClient.post<{ success: true; statusName: string }>(
       `/api/jira/issues/${encodeURIComponent(issueKey)}/transitions`,
+      params,
+    ),
+
+  updateIssueComponents: (
+    issueKey: string,
+    params: UpdateIssueComponentsParams,
+  ): Promise<UpdateIssueComponentsResponse> =>
+    httpClient.put<UpdateIssueComponentsResponse>(
+      `/api/jira/issues/${encodeURIComponent(issueKey)}/components`,
       params,
     ),
 

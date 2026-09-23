@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useQuery } from '@tanstack/vue-query'
+import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { jiraApi } from '../api/jiraApi'
 import type { CdtTicketStory } from '../types/jira'
 import { formatCreatedAt } from '../composables/useTicketsTableFilters'
 import { issueStatusBadgeClass } from '../utils/issueStatus'
-import { labelTagClass } from '../utils/labelTag'
 import { formatOpenDuration, openDurationChipClass } from '../utils/formatOpenDuration'
+import IssueComponentsDropdown from './IssueComponentsDropdown.vue'
 import TicketStoryDetailsDialog from './TicketStoryDetailsDialog.vue'
 
 const props = defineProps<{
@@ -14,6 +14,8 @@ const props = defineProps<{
   isLoading: boolean
   error: string | null
 }>()
+
+const queryClient = useQueryClient()
 
 const { data: connectionInfo } = useQuery({
   queryKey: ['jira-connection-info'],
@@ -35,6 +37,18 @@ function openDetails(story: CdtTicketStory): void {
 
 function closeDetails(): void {
   selectedStory.value = null
+}
+
+function onComponentsChanged(payload: { issueKey: string; components: string[] }): void {
+  queryClient.setQueriesData<CdtTicketStory[]>(
+    { queryKey: ['cdt-ticket-stories', 'created'] },
+    (old) => {
+      if (!old) return old
+      return old.map((story) =>
+        story.key === payload.issueKey ? { ...story, components: payload.components } : story,
+      )
+    },
+  )
 }
 </script>
 
@@ -116,17 +130,11 @@ function closeDetails(): void {
               {{ story.sprintName || '—' }}
             </td>
             <td class="px-3 py-2">
-              <div v-if="(story.components ?? []).length > 0" class="flex flex-wrap gap-1">
-                <span
-                  v-for="component in story.components"
-                  :key="component"
-                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-                  :class="labelTagClass(component)"
-                >
-                  {{ component }}
-                </span>
-              </div>
-              <span v-else class="text-gray-400">—</span>
+              <IssueComponentsDropdown
+                :issue-key="story.key"
+                :components="story.components ?? []"
+                @components-changed="onComponentsChanged"
+              />
             </td>
             <td class="px-3 py-2 whitespace-nowrap">
               <button

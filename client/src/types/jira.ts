@@ -145,6 +145,15 @@ export interface UpdateIssueStatusParams {
   transitionId: string
 }
 
+export interface UpdateIssueComponentsParams {
+  componentIds: string[]
+}
+
+export interface UpdateIssueComponentsResponse {
+  success: true
+  components: string[]
+}
+
 export interface PullRequestBranchList {
   repoSlug: string
   branches: string[]
