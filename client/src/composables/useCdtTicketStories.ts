@@ -25,6 +25,7 @@ async function fetchStoriesByKeys(keys: string[]): Promise<CdtTicketStory[]> {
         key: issue.key,
         summary: issue.summary,
         statusName: issue.statusName,
+        created: issue.created ?? '',
         sprintName: issue.sprintName ?? '',
         components: issue.components ?? [],
       })
@@ -63,7 +64,7 @@ export function useCdtTicketStories() {
     error: storiesError,
     refetch: refetchStories,
   } = useQuery({
-    queryKey: ['cdt-ticket-stories', storyKeysKey],
+    queryKey: ['cdt-ticket-stories', 'created', storyKeysKey],
     queryFn: () => fetchStoriesByKeys(storyKeys.value),
     enabled: computed(() => !ticketsLoading.value && storyKeys.value.length > 0),
     retry: 1,

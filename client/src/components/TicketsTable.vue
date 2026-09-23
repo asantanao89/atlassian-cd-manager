@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { jiraApi } from '../api/jiraApi'
 import { useTicketsTableFilters, formatCreatedAt } from '../composables/useTicketsTableFilters'
+import { formatOpenDuration, openDurationChipClass } from '../utils/formatOpenDuration'
 import TicketDetailsDialog from './TicketDetailsDialog.vue'
 import RequestTypeIcon from './RequestTypeIcon.vue'
 import type { CdtTicket } from '../types/jira'
@@ -342,10 +343,10 @@ function hideTooltip(): void {
                 <button
                   type="button"
                   class="inline-flex items-center gap-1 uppercase tracking-wide hover:text-gray-800"
-                  :aria-label="createdSort === 'desc' ? 'Ordenar Created at ascendente' : 'Ordenar Created at descendente'"
+                  :aria-label="createdSort === 'desc' ? 'Ordenar Creado hace ascendente' : 'Ordenar Creado hace descendente'"
                   @click="toggleCreatedSort"
                 >
-                  Created at
+                  Opened
                   <span class="inline-flex flex-col" aria-hidden="true">
                     <svg viewBox="0 0 10 6" class="h-2 w-2" :class="createdSort === 'asc' ? 'text-gray-800' : 'text-gray-300'">
                       <path fill="currentColor" d="M5 0 10 6H0z" />
@@ -360,7 +361,7 @@ function hideTooltip(): void {
               <th class="px-3 py-2 text-left font-medium">Story</th>
               <th class="w-[500px] min-w-[500px] max-w-[500px] px-3 py-2 text-left font-medium">Summary</th>
               <th class="px-3 py-2 text-left font-medium">Status</th>
-              <th class="px-3 py-2 text-left font-medium">Assigned to</th>
+              <th class="px-3 py-2 text-left font-medium">Assig</th>
               <th class="px-3 py-2 text-left font-medium">Labels</th>
               <th class="px-3 py-2 text-left font-medium">Details</th>
             </tr>
@@ -383,8 +384,18 @@ function hideTooltip(): void {
                 </span>
                 <span v-else class="text-gray-400">—</span>
               </td>
-              <td class="px-3 py-2 text-gray-700 whitespace-nowrap">
-                {{ formatCreatedAt(ticket.created) || '—' }}
+              <td
+                class="px-3 py-2 whitespace-nowrap"
+                :title="formatCreatedAt(ticket.created) || undefined"
+              >
+                <span
+                  v-if="openDurationChipClass(ticket.created)"
+                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                  :class="openDurationChipClass(ticket.created)"
+                >
+                  {{ formatOpenDuration(ticket.created) }}
+                </span>
+                <span v-else class="text-gray-400">—</span>
               </td>
               <td class="px-3 py-2 font-mono font-medium whitespace-nowrap">
                 <a

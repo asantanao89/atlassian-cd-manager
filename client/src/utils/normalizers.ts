@@ -18,6 +18,7 @@ export function normalizeIssueResponse(raw: Partial<JiraIssueSummary>): JiraIssu
     parentStatusCategoryKey: raw.parentStatusCategoryKey ?? null,
     parentStatusColorName: raw.parentStatusColorName ?? null,
     parentIssueType: raw.parentIssueType ?? null,
+    created: raw.created ?? '',
     updated: raw.updated ?? '',
     sprintName: raw.sprintName ?? '',
     components: raw.components ?? [],

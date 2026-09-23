@@ -33,6 +33,7 @@ export interface JiraIssueSummary {
   parentStatusCategoryKey: string | null
   parentStatusColorName: string | null
   parentIssueType: string | null
+  created: string
   updated: string
   sprintName: string
   components: string[]
@@ -75,6 +76,7 @@ export interface CdtTicketStory {
   key: string
   summary: string
   statusName: string
+  created: string
   sprintName: string
   components: string[]
   ticketKeys: string[]

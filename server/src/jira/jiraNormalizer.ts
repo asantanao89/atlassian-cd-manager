@@ -15,6 +15,7 @@ export interface NormalizedIssue {
   parentStatusCategoryKey: string | null
   parentStatusColorName: string | null
   parentIssueType: string | null
+  created: string
   updated: string
   sprintName: string
   components: string[]
@@ -103,6 +104,7 @@ export function normalizeIssue(raw: unknown): NormalizedIssue {
     parentStatusCategoryKey,
     parentStatusColorName,
     parentIssueType,
+    created: String(fields.created ?? ''),
     updated: String(fields.updated ?? ''),
     sprintName: extractSprintName(fields[CDT_TICKETS_CONFIG.sprintField]),
     components,

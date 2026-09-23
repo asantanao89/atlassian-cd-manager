@@ -63,4 +63,27 @@ describe('normalizeIssue', () => {
     expect(issue.parentStatusColorName).toBe('green')
     expect(issue.parentIssueType).toBe('Epica')
   })
+
+  it('maps created from Jira', () => {
+    const issue = normalizeIssue({
+      id: '10005',
+      key: 'CDPM-5',
+      fields: {
+        summary: 'Story',
+        created: '2026-01-15T10:00:00.000+0100',
+      },
+    })
+
+    expect(issue.created).toBe('2026-01-15T10:00:00.000+0100')
+  })
+
+  it('defaults created to an empty string', () => {
+    const issue = normalizeIssue({
+      id: '10006',
+      key: 'CDPM-6',
+      fields: { summary: 'Story' },
+    })
+
+    expect(issue.created).toBe('')
+  })
 })

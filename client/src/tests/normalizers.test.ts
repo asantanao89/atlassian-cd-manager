@@ -75,6 +75,7 @@ describe('normalizeIssueResponse', () => {
     expect(issue.parentStatusCategoryKey).toBeNull()
     expect(issue.parentStatusColorName).toBeNull()
     expect(issue.parentIssueType).toBeNull()
+    expect(issue.created).toBe('')
     expect(issue.sprintName).toBe('')
     expect(issue.components).toEqual([])
     expect(issue.labels).toEqual([])
