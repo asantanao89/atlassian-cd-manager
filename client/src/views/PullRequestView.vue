@@ -3,7 +3,10 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { HttpError } from '../api/httpClient'
 import { bitbucketApi } from '../api/bitbucketApi'
-import type { CreatedPullRequest } from '../types/jira'
+import { jiraApi } from '../api/jiraApi'
+import DiscordNotifyDialog from '../components/DiscordNotifyDialog.vue'
+import type { CreatedPullRequest, JiraOpenPullRequest } from '../types/jira'
+import { parseJiraIssueKey } from '../utils/parseIssueKey'
 
 const route = useRoute()
 
@@ -37,6 +40,8 @@ const isLoadingCommits = ref(false)
 const isCreating = ref(false)
 const createError = ref<string | null>(null)
 const createdPullRequest = ref<CreatedPullRequest | null>(null)
+const showDiscordNotify = ref(false)
+const discordIssueSummary = ref<string | null>(null)
 
 const canCreate = computed(() => {
   return (
@@ -48,6 +53,35 @@ const canCreate = computed(() => {
     && !isCreating.value
   )
 })
+
+const discordIssueKey = computed(() => {
+  const querySource = typeof route.query.source === 'string' ? route.query.source : ''
+  const queryIssue = typeof route.query.issue === 'string' ? route.query.issue : ''
+  return (
+    parseJiraIssueKey(querySource)
+    || parseJiraIssueKey(queryIssue)
+    || parseJiraIssueKey(sourceBranch.value)
+    || parseJiraIssueKey(title.value)
+    || parseJiraIssueKey(createdPullRequest.value?.sourceBranch ?? '')
+    || parseJiraIssueKey(createdPullRequest.value?.title ?? '')
+  )
+})
+
+const seedPullRequests = computed<JiraOpenPullRequest[]>(() => {
+  if (!createdPullRequest.value) return []
+  return [createdPullRequest.value]
+})
+
+watch(discordIssueKey, async (key) => {
+  discordIssueSummary.value = null
+  if (!key) return
+  try {
+    const issue = await jiraApi.getIssue(key)
+    discordIssueSummary.value = issue.summary
+  } catch {
+    discordIssueSummary.value = key
+  }
+}, { immediate: true })
 
 // Auto-generate title from source branch name
 watch(sourceBranch, (branch) => {
@@ -372,15 +406,33 @@ onMounted(async () => {
       <p class="text-xs text-gray-600">Estado: {{ createdPullRequest.state || 'OPEN' }}</p>
       <p class="text-xs text-gray-600">Repositorio: {{ createdPullRequest.repository || repoSlug }}</p>
 
-      <a
-        v-if="createdPullRequest.url"
-        :href="createdPullRequest.url"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="inline-flex items-center text-sm text-blue-700 hover:text-blue-900 underline"
-      >
-        Abrir pull request
-      </a>
+      <div class="flex flex-wrap items-center gap-3 pt-1">
+        <a
+          v-if="createdPullRequest.url"
+          :href="createdPullRequest.url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center text-sm text-blue-700 hover:text-blue-900 underline"
+        >
+          Abrir pull request
+        </a>
+        <button
+          v-if="discordIssueKey"
+          type="button"
+          class="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+          @click="showDiscordNotify = true"
+        >
+          Notificar a Discord
+        </button>
+      </div>
     </div>
+
+    <DiscordNotifyDialog
+      :show="showDiscordNotify"
+      :issue-key="discordIssueKey"
+      :issue-summary="discordIssueSummary"
+      :seed-pull-requests="seedPullRequests"
+      @close="showDiscordNotify = false"
+    />
   </div>
 </template>

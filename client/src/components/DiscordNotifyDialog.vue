@@ -7,11 +7,17 @@ import { useEscapeToClose } from '../composables/useEscapeToClose'
 import type { DiscordChannel } from '../types/discord'
 import type { JiraOpenPullRequest } from '../types/jira'
 
-const props = defineProps<{
-  show: boolean
-  issueKey: string | null
-  issueSummary: string | null
-}>()
+const props = withDefaults(
+  defineProps<{
+    show: boolean
+    issueKey: string | null
+    issueSummary: string | null
+    seedPullRequests?: JiraOpenPullRequest[]
+  }>(),
+  {
+    seedPullRequests: () => [],
+  },
+)
 
 const emit = defineEmits<{
   close: []
@@ -85,6 +91,27 @@ function buildMessage(
   return lines.join('\n')
 }
 
+function pullRequestIdentity(pr: JiraOpenPullRequest): string {
+  return (pr.url?.trim() || pr.id).toLowerCase()
+}
+
+function mergePullRequests(
+  seeded: JiraOpenPullRequest[],
+  fetched: JiraOpenPullRequest[],
+): JiraOpenPullRequest[] {
+  const merged: JiraOpenPullRequest[] = []
+  const seen = new Set<string>()
+
+  for (const pullRequest of [...seeded, ...fetched]) {
+    const identity = pullRequestIdentity(pullRequest)
+    if (!identity || seen.has(identity)) continue
+    seen.add(identity)
+    merged.push(pullRequest)
+  }
+
+  return merged
+}
+
 async function loadDialogData(): Promise<void> {
   if (!props.issueKey) return
 
@@ -107,7 +134,7 @@ async function loadDialogData(): Promise<void> {
     jiraBaseUrl.value = connectionInfo.jiraBaseUrl.replace(/\/$/, '')
     channels.value = channelsResponse.channels
 
-    pullRequests.value = pullRequestsResponse.pullRequests
+    pullRequests.value = mergePullRequests(props.seedPullRequests, pullRequestsResponse.pullRequests)
   } catch (error) {
     if (error instanceof HttpError && error.statusCode === 503) {
       loadError.value = error.message

@@ -12,5 +12,8 @@ export function parseJiraIssueKey(input: string): string | null {
   const keyOnly = trimmed.match(/^([A-Z][A-Z0-9]+-\d+)$/i)
   if (keyOnly) return keyOnly[1].toUpperCase()
 
+  const embedded = trimmed.match(/[A-Z][A-Z0-9]+-\d+/i)
+  if (embedded) return embedded[0].toUpperCase()
+
   return null
 }
