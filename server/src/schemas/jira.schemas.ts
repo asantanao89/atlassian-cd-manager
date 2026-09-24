@@ -129,6 +129,15 @@ export const updateStorySchema = createStorySchema.extend({
   fieldBackup: storyFieldBackupSchema,
 })
 
+const manualRuleInputValueSchema = z.object({
+  inputType: z.enum(['NUMBER', 'BOOLEAN', 'TEXT', 'DROPDOWN', 'PARAGRAPH']),
+  value: z.union([z.string(), z.number(), z.boolean()]),
+})
+
+export const invokeManualRuleSchema = z.object({
+  userInputs: z.record(manualRuleInputValueSchema).optional(),
+})
+
 export const listStoryParentsSchema = z.object({
   includeDone: z
     .union([z.boolean(), z.enum(['true', 'false', '1', '0'])])

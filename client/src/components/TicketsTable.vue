@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/vue-query'
 import { jiraApi } from '../api/jiraApi'
 import { useTicketsTableFilters, formatCreatedAt } from '../composables/useTicketsTableFilters'
 import { formatOpenDuration, openDurationChipClass, OPEN_DURATION_RANGES } from '../utils/formatOpenDuration'
+import TicketAutomationsButton from './TicketAutomationsButton.vue'
 import TicketDetailsDialog from './TicketDetailsDialog.vue'
 import RequestTypeIcon from './RequestTypeIcon.vue'
 import type { CdtTicket } from '../types/jira'
@@ -374,7 +375,7 @@ function hideTooltip(): void {
               <th class="px-3 py-2 text-left font-medium">Status</th>
               <th class="px-3 py-2 text-left font-medium">Assig</th>
               <th class="px-3 py-2 text-left font-medium">Labels</th>
-              <th class="px-3 py-2 text-left font-medium">Details</th>
+              <th class="px-3 py-2 text-left font-medium">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
@@ -473,18 +474,21 @@ function hideTooltip(): void {
                 <span v-else class="text-gray-400">—</span>
               </td>
               <td class="px-3 py-2 whitespace-nowrap">
-                <button
-                  type="button"
-                  class="inline-flex h-7 w-7 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
-                  title="Ver details"
-                  aria-label="Ver details"
-                  @click="openDetails(ticket)"
-                >
-                  <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
-                    <path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
-                    <path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 0 1 0-1.186A10.004 10.004 0 0 1 10 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0 1 10 17c-4.257 0-7.893-2.66-9.336-6.41ZM14 10a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" clip-rule="evenodd" />
-                  </svg>
-                </button>
+                <div class="inline-flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    class="inline-flex h-7 w-7 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                    title="Ver details"
+                    aria-label="Ver details"
+                    @click="openDetails(ticket)"
+                  >
+                    <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
+                      <path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
+                      <path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 0 1 0-1.186A10.004 10.004 0 0 1 10 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0 1 10 17c-4.257 0-7.893-2.66-9.336-6.41ZM14 10a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                  <TicketAutomationsButton :issue-id="ticket.id" />
+                </div>
               </td>
             </tr>
           </tbody>

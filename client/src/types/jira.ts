@@ -131,6 +131,28 @@ export interface PendingProductionStory {
   commitCount: number
 }
 
+export type ManualRuleInputType = 'NUMBER' | 'BOOLEAN' | 'TEXT' | 'DROPDOWN' | 'PARAGRAPH'
+
+export interface ManualRuleInput {
+  variableName: string
+  displayName: string
+  inputType: ManualRuleInputType
+  required: boolean
+  options: string[]
+  defaultValue: string | number | boolean | null
+}
+
+export interface ManualRule {
+  id: string
+  name: string
+  inputs: ManualRuleInput[]
+}
+
+export interface ManualRuleUserInput {
+  inputType: ManualRuleInputType
+  value: string | number | boolean
+}
+
 export interface JiraIssueTransition {
   id: string
   name: string

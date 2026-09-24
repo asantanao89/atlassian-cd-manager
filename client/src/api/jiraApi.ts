@@ -23,6 +23,8 @@ import type {
   CdtTicketDetails,
   CdtTicketStoryDetails,
   PendingProductionStory,
+  ManualRule,
+  ManualRuleUserInput,
 } from '../types/jira'
 
 export interface SearchIssuesParams {
@@ -69,6 +71,21 @@ export const jiraApi = {
 
   getCdtTicket: (issueKey: string): Promise<CdtTicketDetails> =>
     httpClient.get<CdtTicketDetails>(`/api/jira/tickets/${encodeURIComponent(issueKey)}`),
+
+  listManualRules: (issueId: string): Promise<{ rules: ManualRule[] }> =>
+    httpClient.get<{ rules: ManualRule[] }>(
+      `/api/jira/manual-rules/${encodeURIComponent(issueId)}`,
+    ),
+
+  invokeManualRule: (
+    issueId: string,
+    ruleId: string,
+    userInputs?: Record<string, ManualRuleUserInput>,
+  ): Promise<{ status: 'SUCCESS' }> =>
+    httpClient.post<{ status: 'SUCCESS' }>(
+      `/api/jira/manual-rules/${encodeURIComponent(issueId)}/${encodeURIComponent(ruleId)}`,
+      userInputs ? { userInputs } : {},
+    ),
 
   getCdtTicketStory: (issueKey: string): Promise<CdtTicketStoryDetails> =>
     httpClient.get<CdtTicketStoryDetails>(

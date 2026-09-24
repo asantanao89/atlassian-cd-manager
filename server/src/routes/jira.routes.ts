@@ -22,7 +22,9 @@ import {
   createStorySchema,
   updateStorySchema,
   listStoryParentsSchema,
+  invokeManualRuleSchema,
 } from '../schemas/jira.schemas'
+import { invokeManualRule, listManualRules } from '../jira/manualRules'
 import { ALLOWED_ISSUE_TYPE_IDS, ALLOWED_PILARES_OPTION_IDS, STORY_CREATE_CONFIG } from '../jira/storyCreateConfig'
 import { parseJiraIssueKey } from '../jira/parseIssueKey'
 import { buildFieldBackupCommentMarkdown } from '../jira/buildFieldBackupComment'
@@ -403,6 +405,47 @@ export async function jiraRoutes(fastify: FastifyInstance): Promise<void> {
       }
 
       return reply.send(details)
+    },
+  )
+
+  // GET /api/jira/manual-rules/:issueId — manual automations available on a ticket
+  fastify.get(
+    '/manual-rules/:issueId',
+    async (req: FastifyRequest<{ Params: { issueId: string } }>, reply) => {
+      if (!/^\d+$/.test(req.params.issueId)) {
+        return reply.status(400).send({ error: 'Invalid issue id' })
+      }
+      const result = await listManualRules(req.params.issueId)
+      if (!result.ok) return sendJiraError(reply, result.error)
+      return reply.send({ rules: result.data })
+    },
+  )
+
+  // POST /api/jira/manual-rules/:issueId/:ruleId — invoke a manual automation on a ticket
+  fastify.post(
+    '/manual-rules/:issueId/:ruleId',
+    async (
+      req: FastifyRequest<{ Params: { issueId: string; ruleId: string }; Body: unknown }>,
+      reply,
+    ) => {
+      if (!/^\d+$/.test(req.params.issueId)) {
+        return reply.status(400).send({ error: 'Invalid issue id' })
+      }
+      if (!/^[\w.-]+$/.test(req.params.ruleId)) {
+        return reply.status(400).send({ error: 'Invalid rule id' })
+      }
+      const parsed = invokeManualRuleSchema.safeParse(req.body ?? {})
+      if (!parsed.success) {
+        return reply.status(400).send({ error: 'Invalid request', details: parsed.error.errors })
+      }
+
+      const result = await invokeManualRule(
+        req.params.issueId,
+        req.params.ruleId,
+        parsed.data.userInputs,
+      )
+      if (!result.ok) return sendJiraError(reply, result.error)
+      return reply.send({ status: result.data })
     },
   )
 
