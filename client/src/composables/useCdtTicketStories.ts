@@ -72,10 +72,17 @@ export function useCdtTicketStories() {
 
   const stories = computed<CdtTicketStory[]>(() => {
     const keysByStory = ticketKeysByStory.value
-    return (fetchedStories.value ?? []).map((story) => ({
-      ...story,
-      ticketKeys: keysByStory.get(story.key) ?? [],
-    }))
+    return (fetchedStories.value ?? [])
+      .map((story) => ({
+        ...story,
+        ticketKeys: keysByStory.get(story.key) ?? [],
+      }))
+      .sort((a, b) => {
+        const aTime = a.created ? Date.parse(a.created) : 0
+        const bTime = b.created ? Date.parse(b.created) : 0
+        if (aTime === bTime) return 0
+        return aTime > bTime ? -1 : 1
+      })
   })
 
   const isLoading = computed(
