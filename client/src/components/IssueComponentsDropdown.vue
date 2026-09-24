@@ -106,10 +106,6 @@ async function toggleComponent(id: string): Promise<void> {
   const nextIds = isSelected(id)
     ? selectedIds.value.filter((current) => current !== id)
     : [...selectedIds.value, id]
-  if (nextIds.length === 0) {
-    submitError.value = 'Selecciona al menos un component'
-    return
-  }
 
   const previousNames = [...visibleComponents.value]
   const previousIds = [...selectedIds.value]

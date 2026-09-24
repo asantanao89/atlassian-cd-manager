@@ -79,7 +79,6 @@ export const transitionIssueSchema = z.object({
 export const updateIssueComponentsSchema = z.object({
   componentIds: z
     .array(z.string().trim().min(1))
-    .min(1, 'At least one component is required')
     .transform((ids) => [...new Set(ids)]),
 })
 
