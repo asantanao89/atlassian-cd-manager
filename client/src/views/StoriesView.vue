@@ -6,6 +6,7 @@ const route = useRoute()
 
 const tabs = [
   { label: 'Creación', to: '/stories/creacion' },
+  { label: 'Sprint', to: '/stories/sprint' },
   { label: 'Pendiente producción', to: '/stories/pendiente-produccion' },
 ]
 

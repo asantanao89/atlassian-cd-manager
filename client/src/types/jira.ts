@@ -116,6 +116,27 @@ export interface JiraOpenPullRequest {
   author: string | null
 }
 
+export interface SprintStory {
+  key: string
+  summary: string
+  statusName: string
+  assigneeName: string | null
+  sprintName: string
+  actionRequired: 'Ready for test' | 'Prepare PO' | null
+  addedAt: string
+  parentKey: string | null
+  parentSummary: string | null
+  parentStatusName: string | null
+  parentStatusCategoryKey: string | null
+  parentStatusColorName: string | null
+  parentIssueType: string | null
+}
+
+export interface SprintStoriesResponse {
+  sprintName: string | null
+  stories: SprintStory[]
+}
+
 export interface PendingProductionStory {
   key: string
   summary: string

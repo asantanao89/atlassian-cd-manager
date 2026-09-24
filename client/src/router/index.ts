@@ -9,6 +9,7 @@ import PricingView from '../views/PricingView.vue'
 import CreateStoryView from '../views/CreateStoryView.vue'
 import StoriesView from '../views/StoriesView.vue'
 import StoriesPendingProductionView from '../views/StoriesPendingProductionView.vue'
+import StoriesSprintView from '../views/StoriesSprintView.vue'
 import TicketsView from '../views/TicketsView.vue'
 import TicketsListView from '../views/TicketsListView.vue'
 import TicketsSummaryView from '../views/TicketsSummaryView.vue'
@@ -60,6 +61,11 @@ const router = createRouter({
           path: 'creacion',
           name: 'stories-create',
           component: CreateStoryView,
+        },
+        {
+          path: 'sprint',
+          name: 'stories-sprint',
+          component: StoriesSprintView,
         },
         {
           path: 'pendiente-produccion',

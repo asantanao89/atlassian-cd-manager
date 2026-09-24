@@ -25,6 +25,8 @@ import {
   invokeManualRuleSchema,
 } from '../schemas/jira.schemas'
 import { invokeManualRule, listManualRules } from '../jira/manualRules'
+import { sprintActionRequired, type ReadyForTestSubtask, type SprintActionRequired } from '../jira/readyForTest'
+import { sprintAddedAt, type SprintChangelogEntry } from '../jira/sprintAddedAt'
 import { ALLOWED_ISSUE_TYPE_IDS, ALLOWED_PILARES_OPTION_IDS, STORY_CREATE_CONFIG } from '../jira/storyCreateConfig'
 import { parseJiraIssueKey } from '../jira/parseIssueKey'
 import { buildFieldBackupCommentMarkdown } from '../jira/buildFieldBackupComment'
@@ -651,6 +653,146 @@ export async function jiraRoutes(fastify: FastifyInstance): Promise<void> {
     })
 
     return reply.send({ stories })
+  })
+
+  // GET /api/jira/stories/sprint — CDPM stories in the active sprint
+  fastify.get('/stories/sprint', async (_req, reply) => {
+    const jql = `project = ${STORY_CREATE_CONFIG.projectKey} AND sprint in openSprints() AND issuetype != Subtarea AND issuetype != "Sub-tarea" ORDER BY Rank ASC`
+    const stories: Array<{
+      key: string
+      summary: string
+      statusName: string
+      assigneeName: string | null
+      sprintName: string
+      actionRequired: SprintActionRequired | null
+      addedAt: string
+      parentKey: string | null
+      parentSummary: string | null
+      parentStatusName: string | null
+      parentStatusCategoryKey: string | null
+      parentStatusColorName: string | null
+      parentIssueType: string | null
+    }> = []
+    let nextPageToken: string | undefined
+
+    while (stories.length < 100) {
+      const body: Record<string, unknown> = {
+        jql,
+        maxResults: Math.min(50, 100 - stories.length),
+        fields: ['summary', 'status', 'assignee', 'created', 'parent', CDT_TICKETS_CONFIG.sprintField],
+      }
+      if (nextPageToken) body.nextPageToken = nextPageToken
+
+      const result = await jira.post<{ issues?: unknown[]; nextPageToken?: string | null }>(
+        '/rest/api/3/search/jql',
+        body,
+      )
+      if (!result.ok) return sendJiraError(reply, result.error)
+
+      for (const raw of result.data.issues ?? []) {
+        const issue = normalizeIssue(raw)
+        stories.push({
+          key: issue.key,
+          summary: issue.summary,
+          statusName: issue.statusName,
+          assigneeName: issue.assigneeName,
+          sprintName: issue.sprintName,
+          actionRequired: null,
+          addedAt: issue.created,
+          parentKey: issue.parentKey,
+          parentSummary: issue.parentSummary,
+          parentStatusName: issue.parentStatusName,
+          parentStatusCategoryKey: issue.parentStatusCategoryKey,
+          parentStatusColorName: issue.parentStatusColorName,
+          parentIssueType: issue.parentIssueType,
+        })
+      }
+
+      nextPageToken = result.data.nextPageToken ?? undefined
+      if (!nextPageToken || (result.data.issues ?? []).length === 0) break
+    }
+
+    const parentStatuses = await fetchParentStatusByKeys(
+      jira,
+      stories.flatMap((story) => (story.parentKey ? [story.parentKey] : [])),
+    )
+    for (const story of stories) {
+      if (!story.parentKey) continue
+      const parent = parentStatuses.get(story.parentKey.toUpperCase())
+      if (!parent) continue
+      story.parentSummary = story.parentSummary ?? parent.summary
+      story.parentStatusName = parent.statusName ?? story.parentStatusName
+      story.parentStatusCategoryKey = parent.statusCategoryKey ?? story.parentStatusCategoryKey
+      story.parentStatusColorName = parent.statusColorName ?? story.parentStatusColorName
+      story.parentIssueType = parent.issueType ?? story.parentIssueType
+    }
+
+    const subtasksByParent = new Map<string, ReadyForTestSubtask[]>()
+    for (let index = 0; index < stories.length; index += 40) {
+      const keys = stories.slice(index, index + 40).map((story) => story.key)
+      let subtaskPageToken: string | undefined
+      const jql = `parent in (${keys.join(', ')}) ORDER BY key ASC`
+      while (true) {
+        const body: Record<string, unknown> = {
+          jql,
+          maxResults: 100,
+          fields: ['summary', 'status', 'parent'],
+        }
+        if (subtaskPageToken) body.nextPageToken = subtaskPageToken
+        const result = await jira.post<{ issues?: unknown[]; nextPageToken?: string | null }>(
+          '/rest/api/3/search/jql',
+          body,
+        )
+        if (!result.ok) return sendJiraError(reply, result.error)
+        for (const raw of result.data.issues ?? []) {
+          const subtask = normalizeIssue(raw)
+          if (!subtask.parentKey) continue
+          const parentKey = subtask.parentKey.toUpperCase()
+          const list = subtasksByParent.get(parentKey) ?? []
+          list.push({ summary: subtask.summary, statusName: subtask.statusName })
+          subtasksByParent.set(parentKey, list)
+        }
+        subtaskPageToken = result.data.nextPageToken ?? undefined
+        if (!subtaskPageToken || (result.data.issues ?? []).length === 0) break
+      }
+    }
+
+    for (const story of stories) {
+      const subtasks = subtasksByParent.get(story.key.toUpperCase()) ?? []
+      story.actionRequired = sprintActionRequired(story.statusName, subtasks)
+    }
+
+    const addedAtByKey = await mapPool(stories, 4, async (story) => {
+      const histories: SprintChangelogEntry[] = []
+      let startAt = 0
+      while (true) {
+        const result = await jira.get<{
+          values?: Array<{ created?: string; items?: SprintChangelogEntry['items'] }>
+          isLast?: boolean
+        }>(
+          `/rest/api/3/issue/${encodeURIComponent(story.key)}/changelog?startAt=${startAt}&maxResults=100`,
+        )
+        if (!result.ok) return { key: story.key, addedAt: story.addedAt }
+        const values = result.data.values ?? []
+        for (const value of values) {
+          if (!value.created) continue
+          histories.push({ created: value.created, items: value.items ?? [] })
+        }
+        if (result.data.isLast !== false || values.length === 0) break
+        startAt += values.length
+      }
+      return { key: story.key, addedAt: sprintAddedAt(story.addedAt, histories) }
+    })
+    const addedAt = new Map(addedAtByKey.map((entry) => [entry.key, entry.addedAt]))
+    for (const story of stories) {
+      story.addedAt = addedAt.get(story.key) ?? story.addedAt
+    }
+
+    const sprintNames = [...new Set(stories.map((story) => story.sprintName).filter(Boolean))]
+    return reply.send({
+      sprintName: sprintNames.length === 1 ? sprintNames[0] : null,
+      stories,
+    })
   })
 
   // GET /api/jira/issues/:issueKey/transitions

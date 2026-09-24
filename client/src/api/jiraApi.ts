@@ -23,6 +23,7 @@ import type {
   CdtTicketDetails,
   CdtTicketStoryDetails,
   PendingProductionStory,
+  SprintStoriesResponse,
   ManualRule,
   ManualRuleUserInput,
 } from '../types/jira'
@@ -178,6 +179,9 @@ export const jiraApi = {
 
   listPendingProductionStories: (): Promise<{ stories: PendingProductionStory[] }> =>
     httpClient.get<{ stories: PendingProductionStory[] }>('/api/jira/stories/pending-production'),
+
+  listSprintStories: (): Promise<SprintStoriesResponse> =>
+    httpClient.get<SprintStoriesResponse>('/api/jira/stories/sprint'),
 
   listStoryParents: (params?: {
     includeDone?: boolean
