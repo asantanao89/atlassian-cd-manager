@@ -178,7 +178,7 @@ function parentChipColors(story: PendingProductionStory): { bg: string; fg: stri
               <component
                 :is="jiraBaseUrl ? 'a' : 'span'"
                 v-if="story.parentKey"
-                class="inline-flex max-w-[22rem] items-start gap-1.5 rounded-full border px-2 py-1 text-xs font-medium"
+                class="inline-flex max-w-[22rem] items-center gap-1.5 rounded-md border px-0.5 py-0.5 text-xs font-medium"
                 :class="issueStatusBadgeClass(story.parentStatusName ?? '')"
                 :style="{
                   backgroundColor: parentChipColors(story).bg,
@@ -196,15 +196,15 @@ function parentChipColors(story: PendingProductionStory): { bg: string; fg: stri
                 "
                 :title="[story.parentKey, story.parentSummary].filter(Boolean).join(' ')"
               >
-                <WorkTypeIcon :name="story.parentIssueType || 'Epica'" size="sm" class="mt-0.5" />
+                <WorkTypeIcon :name="story.parentIssueType || 'Epica'" size="sm" />
                 <span
-                  class="mt-1 h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                  class="h-2.5 w-2.5 shrink-0 rounded-[2px]"
                   :style="{ backgroundColor: parentChipColors(story).swatch }"
                   :title="story.parentStatusName ?? undefined"
                 />
-                <span class="min-w-0">
-                  <span class="block font-medium">{{ story.parentKey }}</span>
-                  <span v-if="story.parentSummary" class="block break-words">
+                <span class="min-w-0 inline-flex flex-wrap gap-0.5">
+                  <span class="block font-mono text-xs">{{ story.parentKey }}</span>
+                  <span v-if="story.parentSummary" class="block break-words text-xs">
                     {{ story.parentSummary }}
                   </span>
                 </span>
