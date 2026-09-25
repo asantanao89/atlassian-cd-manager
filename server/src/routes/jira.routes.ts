@@ -84,10 +84,18 @@ function nestedName(value: unknown): string | null {
   return record ? asNonEmptyString(record.name) ?? asNonEmptyString(record.full_name) : null
 }
 
+function decodeRepoPath(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
 function repositoryNameFromUrl(url: string | null): string | null {
   if (!url) return null
   const match = url.match(/(?:bitbucket\.org|github\.com|gitlab\.com)\/([^/]+\/[^/]+)/i)
-  return match ? match[1] : null
+  return match ? decodeRepoPath(match[1]) : null
 }
 
 function isMachineRepositoryName(name: string): boolean {

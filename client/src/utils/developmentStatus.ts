@@ -63,13 +63,22 @@ export interface PullRequestRepositoryGroup {
   pullRequests: JiraOpenPullRequest[]
 }
 
+function decodeRepoPath(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
 function repositoryFromUrl(url: string): string | null {
   const match = url.match(/(?:bitbucket\.org|github\.com|gitlab\.com)\/([^/]+\/[^/]+)/i)
-  return match ? match[1] : null
+  return match ? decodeRepoPath(match[1]) : null
 }
 
 function isMachineRepositoryName(name: string): boolean {
-  return /\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}/i.test(name)
+  const decoded = decodeRepoPath(name)
+  return /\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}/i.test(decoded)
 }
 
 function humanRepositoryName(...candidates: Array<string | null | undefined>): string | null {
