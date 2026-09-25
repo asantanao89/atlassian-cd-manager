@@ -10,6 +10,10 @@ import {
 const props = defineProps<{
   issueKey: string
   pullRequests: JiraOpenPullRequest[]
+  branchCount: number
+  commitCount: number
+  isLoading: boolean
+  error: string | null
 }>()
 
 const emit = defineEmits<{
@@ -69,6 +73,25 @@ function displayPrState(state: string | null): string {
         </div>
 
         <div class="overflow-y-auto px-5 py-4">
+          <p v-if="props.isLoading" class="py-6 text-center text-sm text-gray-500">
+            Cargando desarrollo...
+          </p>
+          <p v-else-if="props.error" class="py-6 text-center text-sm text-red-600">
+            {{ props.error }}
+          </p>
+          <template v-else>
+          <p
+            v-if="props.branchCount > 0 || props.commitCount > 0"
+            class="mb-4 text-xs text-gray-500"
+          >
+            <span v-if="props.branchCount > 0">
+              {{ props.branchCount }} {{ props.branchCount === 1 ? 'branch' : 'branches' }}
+            </span>
+            <span v-if="props.branchCount > 0 && props.commitCount > 0"> · </span>
+            <span v-if="props.commitCount > 0">
+              {{ props.commitCount }} {{ props.commitCount === 1 ? 'commit' : 'commits' }}
+            </span>
+          </p>
           <p v-if="props.pullRequests.length === 0" class="py-6 text-center text-sm text-gray-400">
             No hay pull requests.
           </p>
@@ -146,6 +169,7 @@ function displayPrState(state: string | null): string {
               </table>
             </section>
           </div>
+          </template>
         </div>
       </div>
     </div>

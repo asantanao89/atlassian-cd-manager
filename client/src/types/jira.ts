@@ -147,6 +147,9 @@ export interface PendingProductionStory {
   parentStatusCategoryKey: string | null
   parentStatusColorName: string | null
   parentIssueType: string | null
+}
+
+export interface IssueDevelopment {
   pullRequests: JiraOpenPullRequest[]
   branchCount: number
   commitCount: number

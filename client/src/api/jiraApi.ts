@@ -22,6 +22,7 @@ import type {
   CdtTicketsResponse,
   CdtTicketDetails,
   CdtTicketStoryDetails,
+  IssueDevelopment,
   PendingProductionStory,
   SprintStoriesResponse,
   ManualRule,
@@ -113,6 +114,11 @@ export const jiraApi = {
 
   getIssue: (issueKey: string): Promise<JiraIssueSummary> =>
     httpClient.get<JiraIssueSummary>(`/api/jira/issues/${encodeURIComponent(issueKey)}`),
+
+  getIssueDevelopment: (issueKey: string): Promise<IssueDevelopment> =>
+    httpClient.get<IssueDevelopment>(
+      `/api/jira/issues/${encodeURIComponent(issueKey)}/development`,
+    ),
 
   getOpenPullRequestsForParent: (parentKey: string): Promise<{ pullRequests: JiraOpenPullRequest[] }> =>
     httpClient.get<{ pullRequests: JiraOpenPullRequest[] }>(

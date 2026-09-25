@@ -375,25 +375,6 @@ function subtasksFromIssue(raw: unknown): ReadyForTestSubtask[] {
   })
 }
 
-
-async function mapPool<T, R>(items: T[], limit: number, mapper: (item: T) => Promise<R>): Promise<R[]> {
-  if (items.length === 0) return []
-  const results: R[] = new Array(items.length)
-  let nextIndex = 0
-
-  async function worker(): Promise<void> {
-    while (nextIndex < items.length) {
-      const index = nextIndex
-      nextIndex += 1
-      results[index] = await mapper(items[index])
-    }
-  }
-
-  const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker())
-  await Promise.all(workers)
-  return results
-}
-
 export async function jiraRoutes(fastify: FastifyInstance): Promise<void> {
   const jira = getJiraClient()
   const env = getEnv()
@@ -649,6 +630,31 @@ export async function jiraRoutes(fastify: FastifyInstance): Promise<void> {
     },
   )
 
+  // GET /api/jira/issues/:issueKey/development — pull requests, branches and commits
+  fastify.get(
+    '/issues/:issueKey/development',
+    async (req: FastifyRequest<{ Params: { issueKey: string } }>, reply) => {
+      const { issueKey } = req.params
+      const issueResult = await jira.get<Record<string, unknown>>(
+        `/rest/api/3/issue/${encodeURIComponent(issueKey)}?fields=summary`,
+      )
+      if (!issueResult.ok) return sendJiraError(reply, issueResult.error)
+
+      const issueId = String(issueResult.data.id ?? '').trim()
+      if (!issueId) return reply.send({ pullRequests: [], branchCount: 0, commitCount: 0 })
+
+      const [pullRequests, summary] = await Promise.all([
+        fetchPullRequestsForIssueId(jira, issueId, false),
+        fetchDevStatusSummary(jira, issueId),
+      ])
+      return reply.send({
+        pullRequests,
+        branchCount: summary.branchCount,
+        commitCount: summary.commitCount,
+      })
+    },
+  )
+
   // GET /api/jira/stories/pending-production — CDPM stories in "Listo Producción"
   fastify.get('/stories/pending-production', async (_req, reply) => {
     const jql = `project = ${STORY_CREATE_CONFIG.projectKey} AND issuetype = Historia AND status = "Listo Producción" ORDER BY updated DESC`
@@ -692,16 +698,8 @@ export async function jiraRoutes(fastify: FastifyInstance): Promise<void> {
       issue.parentIssueType = parent.issueType ?? issue.parentIssueType
     }
 
-    const stories = await mapPool(issues, 4, async (issue) => {
-      const issueId = issue.id.trim()
-      const [pullRequests, summary] = issueId
-        ? await Promise.all([
-            fetchPullRequestsForIssueId(jira, issueId, false),
-            fetchDevStatusSummary(jira, issueId),
-          ])
-        : [[], { branchCount: 0, commitCount: 0 }] as const
-
-      return {
+    return reply.send({
+      stories: issues.map((issue) => ({
         key: issue.key,
         summary: issue.summary,
         statusName: issue.statusName,
@@ -711,13 +709,8 @@ export async function jiraRoutes(fastify: FastifyInstance): Promise<void> {
         parentStatusCategoryKey: issue.parentStatusCategoryKey,
         parentStatusColorName: issue.parentStatusColorName,
         parentIssueType: issue.parentIssueType,
-        pullRequests,
-        branchCount: summary.branchCount,
-        commitCount: summary.commitCount,
-      }
+      })),
     })
-
-    return reply.send({ stories })
   })
 
   // GET /api/jira/stories/sprint — CDPM stories in the active sprint

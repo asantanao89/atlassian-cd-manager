@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { jiraApi } from '../api/jiraApi'
-import type { PendingProductionStory } from '../types/jira'
+import type { IssueDevelopment, PendingProductionStory } from '../types/jira'
 import { issueStatusBadgeClass } from '../utils/issueStatus'
 import {
   developmentStateBadgeClass,
@@ -20,6 +20,10 @@ const props = defineProps<{
 
 const queryClient = useQueryClient()
 const selectedStory = ref<PendingProductionStory | null>(null)
+const developmentByKey = ref<Record<string, IssueDevelopment>>({})
+const revealedDevelopmentKeys = ref<Record<string, true>>({})
+const developmentLoadingKey = ref<string | null>(null)
+const developmentError = ref<string | null>(null)
 
 const { data: connectionInfo } = useQuery({
   queryKey: ['jira-connection-info'],
@@ -38,15 +42,42 @@ function countLabel(count: number, singular: string, plural: string): string {
   return `${count} ${count === 1 ? singular : plural}`
 }
 
-function hasDevelopment(story: PendingProductionStory): boolean {
-  return story.pullRequests.length > 0 || story.branchCount > 0 || story.commitCount > 0
+function storyDevelopment(story: PendingProductionStory): IssueDevelopment | null {
+  return developmentByKey.value[story.key] ?? null
 }
 
-function openPullRequests(story: PendingProductionStory): void {
+function loadedDevelopment(story: PendingProductionStory): IssueDevelopment | null {
+  if (!revealedDevelopmentKeys.value[story.key]) return null
+  return storyDevelopment(story)
+}
+
+function revealDevelopment(issueKey: string): void {
+  if (!developmentByKey.value[issueKey]) return
+  revealedDevelopmentKeys.value = { ...revealedDevelopmentKeys.value, [issueKey]: true }
+}
+
+function hasDevelopment(development: IssueDevelopment): boolean {
+  return development.pullRequests.length > 0 || development.branchCount > 0 || development.commitCount > 0
+}
+
+async function openPullRequests(story: PendingProductionStory): Promise<void> {
   selectedStory.value = story
+  developmentError.value = null
+  if (developmentByKey.value[story.key]) return
+  developmentLoadingKey.value = story.key
+  try {
+    const development = await jiraApi.getIssueDevelopment(story.key)
+    developmentByKey.value = { ...developmentByKey.value, [story.key]: development }
+    if (selectedStory.value?.key !== story.key) revealDevelopment(story.key)
+  } catch (error) {
+    developmentError.value = error instanceof Error ? error.message : 'No se pudo cargar el desarrollo'
+  } finally {
+    if (developmentLoadingKey.value === story.key) developmentLoadingKey.value = null
+  }
 }
 
 function closePullRequests(): void {
+  if (selectedStory.value) revealDevelopment(selectedStory.value.key)
   selectedStory.value = null
 }
 
@@ -114,6 +145,7 @@ function parentChipColors(story: PendingProductionStory): { bg: string; fg: stri
   }
   return { bg: '#F4F5F7', fg: '#172B4D', swatch: '#6B778C' }
 }
+
 </script>
 
 <template>
@@ -213,27 +245,40 @@ function parentChipColors(story: PendingProductionStory): { bg: string; fg: stri
             </td>
             <td class="px-3 py-2">
               <button
-                v-if="hasDevelopment(story)"
+                v-if="loadedDevelopment(story) && hasDevelopment(loadedDevelopment(story)!)"
                 type="button"
                 class="flex flex-col items-start gap-1 text-left"
                 @click="openPullRequests(story)"
               >
                 <span
-                  v-for="group in groupPullRequestStates(story.pullRequests)"
+                  v-for="group in groupPullRequestStates(loadedDevelopment(story)!.pullRequests)"
                   :key="group.state"
                   class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
                   :class="developmentStateBadgeClass(group.state)"
                 >
                   {{ group.count }} {{ group.label }}
                 </span>
-                <span v-if="story.branchCount > 0" class="text-xs text-gray-500">
-                  {{ countLabel(story.branchCount, 'branch', 'branches') }}
+                <span v-if="loadedDevelopment(story)!.branchCount > 0" class="text-xs text-gray-500">
+                  {{ countLabel(loadedDevelopment(story)!.branchCount, 'branch', 'branches') }}
                 </span>
-                <span v-if="story.commitCount > 0" class="text-xs text-gray-500">
-                  {{ countLabel(story.commitCount, 'commit', 'commits') }}
+                <span v-if="loadedDevelopment(story)!.commitCount > 0" class="text-xs text-gray-500">
+                  {{ countLabel(loadedDevelopment(story)!.commitCount, 'commit', 'commits') }}
                 </span>
               </button>
-              <span v-else class="text-gray-400">—</span>
+              <span v-else-if="loadedDevelopment(story)" class="text-gray-400">—</span>
+              <button
+                v-else
+                type="button"
+                class="inline-flex h-7 w-7 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                title="Ver desarrollo"
+                aria-label="Ver desarrollo"
+                @click="openPullRequests(story)"
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
+                  <path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
+                  <path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 0 1 0-1.186A10.004 10.004 0 0 1 10 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0 1 10 17c-4.257 0-7.893-2.66-9.336-6.41ZM14 10a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" clip-rule="evenodd" />
+                </svg>
+              </button>
             </td>
           </tr>
         </tbody>
@@ -243,7 +288,11 @@ function parentChipColors(story: PendingProductionStory): { bg: string; fg: stri
     <PullRequestsDialog
       v-if="selectedStory"
       :issue-key="selectedStory.key"
-      :pull-requests="selectedStory.pullRequests"
+      :pull-requests="storyDevelopment(selectedStory)?.pullRequests ?? []"
+      :branch-count="storyDevelopment(selectedStory)?.branchCount ?? 0"
+      :commit-count="storyDevelopment(selectedStory)?.commitCount ?? 0"
+      :is-loading="developmentLoadingKey === selectedStory.key"
+      :error="developmentError"
       @close="closePullRequests"
     />
   </div>
