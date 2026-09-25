@@ -10,7 +10,17 @@ export function usePendingProductionStories() {
     retry: 1,
   })
 
-  const stories = computed<PendingProductionStory[]>(() => data.value?.stories ?? [])
+  const stories = computed<PendingProductionStory[]>(() =>
+    [...(data.value?.stories ?? [])].sort((a, b) => {
+      const aParent = a.parentKey?.trim() ?? ''
+      const bParent = b.parentKey?.trim() ?? ''
+      if (!aParent && bParent) return -1
+      if (aParent && !bParent) return 1
+      const byParent = aParent.localeCompare(bParent, 'es')
+      if (byParent !== 0) return byParent
+      return a.key.localeCompare(b.key, 'es')
+    }),
+  )
 
   const errorMessage = computed(() => {
     if (!error.value) return null

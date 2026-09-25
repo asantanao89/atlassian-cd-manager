@@ -146,6 +146,44 @@ function parentChipColors(story: PendingProductionStory): { bg: string; fg: stri
   return { bg: '#F4F5F7', fg: '#172B4D', swatch: '#6B778C' }
 }
 
+const expandedParents = ref<Record<string, true>>({})
+
+type StoryRow =
+  | { type: 'story'; story: PendingProductionStory; groupSize: number; first: boolean }
+  | { type: 'collapsed'; story: PendingProductionStory; count: number }
+
+const rows = computed<StoryRow[]>(() => {
+  const result: StoryRow[] = []
+  let index = 0
+  while (index < props.stories.length) {
+    const story = props.stories[index]
+    const parentKey = story.parentKey?.trim() ?? ''
+    if (!parentKey) {
+      result.push({ type: 'story', story, groupSize: 1, first: false })
+      index += 1
+      continue
+    }
+    let end = index + 1
+    while (end < props.stories.length && (props.stories[end].parentKey?.trim() ?? '') === parentKey) end += 1
+    const count = end - index
+    if (count > 1 && !expandedParents.value[parentKey]) {
+      result.push({ type: 'collapsed', story, count })
+    } else {
+      for (let cursor = index; cursor < end; cursor += 1) {
+        result.push({ type: 'story', story: props.stories[cursor], groupSize: count, first: cursor === index })
+      }
+    }
+    index = end
+  }
+  return result
+})
+
+function toggleParent(parentKey: string): void {
+  const next = { ...expandedParents.value }
+  if (next[parentKey]) delete next[parentKey]
+  else next[parentKey] = true
+  expandedParents.value = next
+}
 </script>
 
 <template>
@@ -178,101 +216,146 @@ function parentChipColors(story: PendingProductionStory): { bg: string; fg: stri
         </thead>
         <tbody class="divide-y divide-gray-100">
           <tr
-            v-for="story in props.stories"
-            :key="story.key"
+            v-for="row in rows"
+            :key="row.type === 'collapsed' ? `collapsed-${row.story.parentKey}` : row.story.key"
             class="hover:bg-blue-50 transition-colors"
           >
+            <template v-if="row.type === 'collapsed' && row.story.parentKey">
+              <td colspan="5" class="px-3 py-2">
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="inline-flex h-6 w-6 items-center justify-center rounded text-gray-500 hover:bg-gray-100"
+                    :aria-label="`Mostrar historias de ${row.story.parentKey}`"
+                    @click="toggleParent(row.story.parentKey)"
+                  >
+                    <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                  <component
+                    :is="jiraBaseUrl ? 'a' : 'span'"
+                    class="inline-flex max-w-[22rem] items-center gap-1.5 rounded-md border px-0.5 py-0.5 text-xs font-medium"
+                    :style="{
+                      backgroundColor: parentChipColors(row.story).bg,
+                      borderColor: parentChipColors(row.story).swatch,
+                      color: parentChipColors(row.story).fg,
+                    }"
+                    v-bind="jiraBaseUrl ? { href: issueBrowseUrl(row.story.parentKey), target: '_blank', rel: 'noopener noreferrer' } : {}"
+                  >
+                    <WorkTypeIcon :name="row.story.parentIssueType || 'Epica'" size="sm" />
+                    <span class="font-mono">{{ row.story.parentKey }}</span>
+                    <span v-if="row.story.parentSummary">{{ row.story.parentSummary }}</span>
+                  </component>
+                  <span class="text-xs text-gray-500">{{ row.count }} historias</span>
+                </div>
+              </td>
+            </template>
+            <template v-else-if="row.type === 'story'">
             <td class="px-3 py-2 font-mono font-medium whitespace-nowrap">
               <a
                 v-if="jiraBaseUrl"
                 class="text-blue-600 hover:text-blue-800 underline"
-                :href="issueBrowseUrl(story.key)"
+                :href="issueBrowseUrl(row.story.key)"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                {{ story.key }}
+                {{ row.story.key }}
               </a>
-              <span v-else>{{ story.key }}</span>
+              <span v-else>{{ row.story.key }}</span>
             </td>
             <td class="w-[500px] min-w-[500px] max-w-[600px] px-3 py-2 text-gray-800 whitespace-normal break-words">
-              {{ story.summary || '—' }}
+              {{ row.story.summary || '—' }}
             </td>
             <td class="px-3 py-2 whitespace-nowrap">
               <IssueStatusDropdown
-                v-if="story.statusName"
-                :issue-key="story.key"
-                :status-name="story.statusName"
+                v-if="row.story.statusName"
+                :issue-key="row.story.key"
+                :status-name="row.story.statusName"
                 @status-changed="onStatusChanged"
               />
               <span v-else class="text-gray-400">—</span>
             </td>
             <td class="px-3 py-2">
+              <div class="flex items-center gap-1">
+              <button
+                v-if="row.first && row.groupSize > 1 && row.story.parentKey"
+                type="button"
+                class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-gray-500 hover:bg-gray-100"
+                :aria-label="`Ocultar historias de ${row.story.parentKey}`"
+                @click="toggleParent(row.story.parentKey)"
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+                </svg>
+              </button>
               <component
                 :is="jiraBaseUrl ? 'a' : 'span'"
-                v-if="story.parentKey"
+                v-if="row.story.parentKey"
                 class="inline-flex max-w-[22rem] items-center gap-1.5 rounded-md border px-0.5 py-0.5 text-xs font-medium"
-                :class="issueStatusBadgeClass(story.parentStatusName ?? '')"
+                :class="issueStatusBadgeClass(row.story.parentStatusName ?? '')"
                 :style="{
-                  backgroundColor: parentChipColors(story).bg,
-                  borderColor: parentChipColors(story).swatch,
-                  color: parentChipColors(story).fg,
+                  backgroundColor: parentChipColors(row.story).bg,
+                  borderColor: parentChipColors(row.story).swatch,
+                  color: parentChipColors(row.story).fg,
                 }"
                 v-bind="
                   jiraBaseUrl
                     ? {
-                        href: issueBrowseUrl(story.parentKey),
+                        href: issueBrowseUrl(row.story.parentKey),
                         target: '_blank',
                         rel: 'noopener noreferrer',
                       }
                     : {}
                 "
-                :title="[story.parentKey, story.parentSummary].filter(Boolean).join(' ')"
+                :title="[row.story.parentKey, row.story.parentSummary].filter(Boolean).join(' ')"
               >
-                <WorkTypeIcon :name="story.parentIssueType || 'Epica'" size="sm" />
+                <WorkTypeIcon :name="row.story.parentIssueType || 'Epica'" size="sm" />
                 <span
                   class="h-2.5 w-2.5 shrink-0 rounded-[2px]"
-                  :style="{ backgroundColor: parentChipColors(story).swatch }"
-                  :title="story.parentStatusName ?? undefined"
+                  :style="{ backgroundColor: parentChipColors(row.story).swatch }"
+                  :title="row.story.parentStatusName ?? undefined"
                 />
                 <span class="min-w-0 inline-flex flex-wrap gap-0.5">
-                  <span class="block font-mono text-xs">{{ story.parentKey }}</span>
-                  <span v-if="story.parentSummary" class="block break-words text-xs">
-                    {{ story.parentSummary }}
+                  <span class="block font-mono text-xs">{{ row.story.parentKey }}</span>
+                  <span v-if="row.story.parentSummary" class="block break-words text-xs">
+                    {{ row.story.parentSummary }}
                   </span>
                 </span>
               </component>
               <span v-else class="text-gray-400">—</span>
+              </div>
             </td>
             <td class="px-3 py-2">
               <button
-                v-if="loadedDevelopment(story) && hasDevelopment(loadedDevelopment(story)!)"
+                v-if="loadedDevelopment(row.story) && hasDevelopment(loadedDevelopment(row.story)!)"
                 type="button"
                 class="flex flex-col items-start gap-1 text-left"
-                @click="openPullRequests(story)"
+                @click="openPullRequests(row.story)"
               >
                 <span
-                  v-for="group in groupPullRequestStates(loadedDevelopment(story)!.pullRequests)"
+                  v-for="group in groupPullRequestStates(loadedDevelopment(row.story)!.pullRequests)"
                   :key="group.state"
                   class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
                   :class="developmentStateBadgeClass(group.state)"
                 >
                   {{ group.count }} {{ group.label }}
                 </span>
-                <span v-if="loadedDevelopment(story)!.branchCount > 0" class="text-xs text-gray-500">
-                  {{ countLabel(loadedDevelopment(story)!.branchCount, 'branch', 'branches') }}
+                <span v-if="loadedDevelopment(row.story)!.branchCount > 0" class="text-xs text-gray-500">
+                  {{ countLabel(loadedDevelopment(row.story)!.branchCount, 'branch', 'branches') }}
                 </span>
-                <span v-if="loadedDevelopment(story)!.commitCount > 0" class="text-xs text-gray-500">
-                  {{ countLabel(loadedDevelopment(story)!.commitCount, 'commit', 'commits') }}
+                <span v-if="loadedDevelopment(row.story)!.commitCount > 0" class="text-xs text-gray-500">
+                  {{ countLabel(loadedDevelopment(row.story)!.commitCount, 'commit', 'commits') }}
                 </span>
               </button>
-              <span v-else-if="loadedDevelopment(story)" class="text-gray-400">—</span>
+              <span v-else-if="loadedDevelopment(row.story)" class="text-gray-400">—</span>
               <button
                 v-else
                 type="button"
                 class="inline-flex h-7 w-7 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
                 title="Ver desarrollo"
                 aria-label="Ver desarrollo"
-                @click="openPullRequests(story)"
+                @click="openPullRequests(row.story)"
               >
                 <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4" aria-hidden="true">
                   <path d="M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
@@ -280,6 +363,7 @@ function parentChipColors(story: PendingProductionStory): { bg: string; fg: stri
                 </svg>
               </button>
             </td>
+            </template>
           </tr>
         </tbody>
       </table>
